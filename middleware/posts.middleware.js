@@ -1,7 +1,6 @@
-// middleware/posts.middleware.js
-import jwt from "jsonwebtoken";
+// middleware/post.middleware.js
 
-// Required authentication - fails if no token
+
 export const requireAuth = async (req, res, next) => {
 	try {
 		const accessToken = req.cookies?.accessToken;
@@ -51,4 +50,63 @@ export const optionalAuth = async (req, res, next) => {
 		console.log("Optional auth failed:", err.message);
 		next();
 	}
+};
+export const validatePostData = (req, res, next) => {
+	const { title, content } = req.body;
+
+	// Title validation
+	if (title !== undefined) {
+		if (!title || !title.trim()) {
+			return res.status(400).json({
+				status: "error",
+				message: "Title cannot be empty",
+			});
+		}
+
+		if (title.trim().length > 50) {
+			return res.status(400).json({
+				status: "error",
+				message: "Title cannot be longer than 50 characters",
+			});
+		}
+	}
+
+	// Content validation
+	if (content !== undefined) {
+		if (!content || !content.trim()) {
+			return res.status(400).json({
+				status: "error",
+				message: "Content cannot be empty",
+			});
+		}
+
+		if (content.trim().length > 191) {
+			return res.status(400).json({
+				status: "error",
+				message: "Content cannot be longer than 191 characters",
+			});
+		}
+	}
+
+	next();
+};
+
+export const validateCommentData = (req, res, next) => {
+	const { content } = req.body;
+
+	if (!content || !content.trim()) {
+		return res.status(400).json({
+			status: "error",
+			message: "Comment content is required",
+		});
+	}
+
+	if (content.trim().length > 500) {
+		return res.status(400).json({
+			status: "error",
+			message: "Comment cannot be longer than 500 characters",
+		});
+	}
+
+	next();
 };

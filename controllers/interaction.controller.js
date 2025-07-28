@@ -59,13 +59,6 @@ export const addCommentController = async (req, res) => {
 			});
 		}
 
-		if (!content || !content.trim()) {
-			return res.status(400).json({
-				status: "error",
-				message: "Comment content is required",
-			});
-		}
-
 		const comment = await addComment(userId, postId, content.trim());
 
 		return res.status(201).json({
@@ -177,13 +170,6 @@ export const updateCommentController = async (req, res) => {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid comment ID",
-			});
-		}
-
-		if (!content || !content.trim()) {
-			return res.status(400).json({
-				status: "error",
-				message: "Comment content is required",
 			});
 		}
 

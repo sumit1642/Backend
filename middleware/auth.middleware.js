@@ -7,12 +7,19 @@ const isValidEmail = (email) => {
 	return emailRegex.test(email);
 };
 
-// LOGIN validation
-export const loginValidation = async (req, res, next) => {
+// REGISTER validation
+export const registerValidation = async (req, res, next) => {
 	try {
-		const { email, password } = req.body;
+		const { name, email, password } = req.body;
 
 		// Check required fields
+		if (!name || !name.trim()) {
+			return res.status(400).json({
+				status: "error",
+				message: "Name is required",
+			});
+		}
+
 		if (!email || !email.trim()) {
 			return res.status(400).json({
 				status: "error",
@@ -76,7 +83,16 @@ export const loginValidation = async (req, res, next) => {
 			message: "Internal server error",
 		});
 	}
-};).json({
+};
+
+// LOGIN validation
+export const loginValidation = async (req, res, next) => {
+	try {
+		const { email, password } = req.body;
+
+		// Check required fields
+		if (!email || !email.trim()) {
+			return res.status(400).json({
 				status: "error",
 				message: "Email is required",
 			});
@@ -119,19 +135,3 @@ export const loginValidation = async (req, res, next) => {
 		});
 	}
 };
-
-// REGISTER validation
-export const registerValidation = async (req, res, next) => {
-	try {
-		const { name, email, password } = req.body;
-
-		// Check required fields
-		if (!name || !name.trim()) {
-			return res.status(400).json({
-				status: "error",
-				message: "Name is required",
-			});
-		}
-
-		if (!email || !email.trim()) {
-			return res.status(400

@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { authRoute } from "./routes/auth.routes.js";
 import { postRoute } from "./routes/post.routes.js";
 import { interactionRoute } from "./routes/interaction.routes.js";
+import { profileRoute } from "./routes/profile.routes.js";
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
@@ -44,6 +45,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoute);
 app.use("/api/posts", postRoute);
 app.use("/api/interactions", interactionRoute);
+app.use("/api/profile", profileRoute);
 
 // Home route - show all published posts
 app.get("/", optionalAuth, getAllPostsController);

@@ -5,6 +5,7 @@ import {
 	refreshAccessToken,
 	logoutUser,
 } from "../services/auth.service.js";
+import { getProfile } from "../services/profile.service.js";
 
 export const register = async (req, res) => {
 	try {
@@ -140,22 +141,26 @@ export const logout = async (req, res) => {
 	}
 };
 
-export const getProfile = async (req, res) => {
+export const getProfileController = async (req, res) => {
 	try {
-		const user = req.user;
+		const userId = req.user.userId;
+		const profile = await getProfile(userId);
 
 		return res.status(200).json({
 			status: "success",
-			data: {
-				user: {
-					id: user.userId,
-					name: user.name,
-					email: user.email,
-				},
-			},
+			message: "Profile fetched successfully",
+			data: { profile },
 		});
 	} catch (err) {
 		console.error("Get profile error:", err);
+
+		if (err.message === "User not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "User not found",
+			});
+		}
+
 		return res.status(500).json({
 			status: "error",
 			message: "Internal server error",
