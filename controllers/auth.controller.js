@@ -1,7 +1,10 @@
 // controllers/auth.controller.js
-import { loginUser, registerUser } from "../services/auth.service.js";
-import { refreshAccessToken } from "../services/auth.service.js";
-import { prisma } from "../utils/prisma.js";
+import {
+	loginUser,
+	registerUser,
+	refreshAccessToken,
+	logoutUser,
+} from "../services/auth.service.js";
 
 export const register = async (req, res) => {
 	try {
@@ -14,15 +17,34 @@ export const register = async (req, res) => {
 		});
 
 		return res.status(201).json({
-			msg: "User registered successfully",
+			status: "success",
+			message: "User registered successfully",
 			data: {
-				id: newUser.id,
-				name: newUser.name,
-				email: newUser.email,
+				user: newUser,
 			},
 		});
 	} catch (err) {
-		return res.status(500).json({ msg: "Server error", error: err.message });
+		console.error("Registration error:", err);
+
+		// Handle specific errors
+		if (err.message === "User already exists") {
+			return res.status(409).json({
+				status: "error",
+				message: "User already exists",
+			});
+		}
+
+		if (err.message.includes("Password must be")) {
+			return res.status(400).json({
+				status: "error",
+				message: err.message,
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
 	}
 };
 
@@ -31,92 +53,168 @@ export const login = async (req, res) => {
 		const user = req.foundUser;
 		const { password } = req.body;
 
-		const { token, refreshToken } = await loginUser(user, password);
-		if (!token) {
-			return res.status(401).json({
-				status: "error",
-				message: "Invalid email or password",
-			});
-		}
+		const { accessToken, refreshToken, user: userData } = await loginUser(user, password);
 
-		res.cookie("token", token, {
+		// Set HTTP-only cookies
+		res.cookie("accessToken", accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			signed: true,
-			maxAge: 7 * 24 * 60 * 60 * 1000,
-			sameSite: "lax",
+			maxAge: 15 * 60 * 1000, // 15 minutes
+			sameSite: "strict",
 		});
 
 		res.cookie("refreshToken", refreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			signed: true,
-			maxAge: 30 * 24 * 60 * 60 * 1000,
-			sameSite: "lax",
+			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+			sameSite: "strict",
 		});
 
-		const { id, name, email } = user;
 		return res.status(200).json({
 			status: "success",
 			message: "Logged in successfully",
-			data: { user: { id, name, email } },
+			data: {
+				user: userData,
+				// Don't send tokens in response body for security
+			},
 		});
 	} catch (err) {
-		return res.status(500).json({ msg: "Server error", error: err.message });
+		console.error("Login error:", err);
+
+		if (err.message === "Invalid credentials") {
+			return res.status(401).json({
+				status: "error",
+				message: "Invalid email or password",
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
 	}
 };
 
 export const refresh = async (req, res) => {
 	try {
 		const refreshToken = req.signedCookies.refreshToken;
-		if (!refreshToken) {
-			return res.status(401).json({ msg: "No refresh token provided" });
-		}
 
-		const newAccessToken = await refreshAccessToken(refreshToken);
-		if (!newAccessToken) {
-			return res.status(403).json({ msg: "Invalid or expired refresh token" });
-		}
+		const {
+			accessToken,
+			refreshToken: newRefreshToken,
+			user,
+		} = await refreshAccessToken(refreshToken);
 
-		res.cookie("token", newAccessToken, {
+		// Set new cookies
+		res.cookie("accessToken", accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			signed: true,
-			maxAge: 7 * 24 * 60 * 60 * 1000,
-			sameSite: "lax",
+			maxAge: 15 * 60 * 1000, // 15 minutes
+			sameSite: "strict",
 		});
 
-		return res.status(200).json({ msg: "Token refreshed successfully" });
+		res.cookie("refreshToken", newRefreshToken, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			signed: true,
+			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+			sameSite: "strict",
+		});
+
+		return res.status(200).json({
+			status: "success",
+			message: "Token refreshed successfully",
+			data: { user },
+		});
 	} catch (err) {
-		return res.status(500).json({ msg: "Server error", error: err.message });
+		console.error("Refresh error:", err);
+
+		// Clear cookies on error
+		res.clearCookie("accessToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			signed: true,
+		});
+
+		res.clearCookie("refreshToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			signed: true,
+		});
+
+		if (err.message.includes("token")) {
+			return res.status(401).json({
+				status: "error",
+				message: err.message,
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
 	}
 };
 
 export const logout = async (req, res) => {
-	const refreshToken = req.signedCookies.refreshToken;
+	try {
+		const refreshToken = req.signedCookies.refreshToken;
 
-	if (refreshToken) {
-		await prisma.refreshToken.delete({
-			where: { token: refreshToken },
+		await logoutUser(refreshToken);
+
+		// Clear cookies
+		res.clearCookie("accessToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			signed: true,
+		});
+
+		res.clearCookie("refreshToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			signed: true,
+		});
+
+		return res.status(200).json({
+			status: "success",
+			message: "Logged out successfully",
+		});
+	} catch (err) {
+		console.error("Logout error:", err);
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
 		});
 	}
+};
 
-	res.clearCookie("token", {
-		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "lax",
-		signed: true,
-	});
+export const getProfile = async (req, res) => {
+	try {
+		// User data is available from auth middleware
+		const user = req.user;
 
-	res.clearCookie("refreshToken", {
-		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "lax",
-		signed: true,
-	});
-
-	return res.status(200).json({
-		status: "success",
-		message: "Logged out successfully",
-	});
+		return res.status(200).json({
+			status: "success",
+			data: {
+				user: {
+					id: user.userId,
+					name: user.name,
+					email: user.email,
+				},
+			},
+		});
+	} catch (err) {
+		console.error("Get profile error:", err);
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
+	}
 };
