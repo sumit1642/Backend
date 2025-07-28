@@ -9,12 +9,12 @@ import { optionalAuth } from "./middleware/posts.middleware.js";
 
 const app = express();
 
-// Middleware
-app.use(express.json({ limit: "1mb" })); // Add size limit
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-app.use(cookieParser(process.env.COOKIE_SECRET || "yourSecretHere"));
+// Basic middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// CORS middleware for development
+// Basic CORS for development
 if (process.env.NODE_ENV !== "production") {
 	app.use((req, res, next) => {
 		res.header("Access-Control-Allow-Origin", "http://localhost:3000");
@@ -32,12 +32,11 @@ if (process.env.NODE_ENV !== "production") {
 	});
 }
 
-// Health check route
+// Health check
 app.get("/health", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Server is running",
-		timestamp: new Date().toISOString(),
 	});
 });
 
@@ -46,7 +45,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/posts", postRoute);
 app.use("/api/interactions", interactionRoute);
 
-// Home route should list all published posts
+// Home route - show all published posts
 app.get("/", optionalAuth, getAllPostsController);
 
 // 404 handler
@@ -57,29 +56,12 @@ app.use("*", (req, res) => {
 	});
 });
 
-// Global error handler
+// Basic error handler
 app.use((err, req, res, next) => {
-	console.error("Global error handler:", err);
-
-	// Handle JSON parsing errors
-	if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-		return res.status(400).json({
-			status: "error",
-			message: "Invalid JSON format",
-		});
-	}
-
-	// Handle payload too large
-	if (err.type === "entity.too.large") {
-		return res.status(413).json({
-			status: "error",
-			message: "Request payload too large",
-		});
-	}
-
+	console.error("Error:", err);
 	res.status(err.status || 500).json({
 		status: "error",
-		message: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+		message: "Internal server error",
 	});
 });
 
@@ -87,5 +69,4 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
 	console.log(`Server running on http://localhost:${PORT}`);
-	console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });

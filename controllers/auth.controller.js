@@ -1,7 +1,7 @@
 // controllers/auth.controller.js
 import {
-	loginUser,
 	registerUser,
+	loginUser,
 	refreshAccessToken,
 	logoutUser,
 } from "../services/auth.service.js";
@@ -9,24 +9,16 @@ import {
 export const register = async (req, res) => {
 	try {
 		const { name, email, password } = req.body;
-
-		const newUser = await registerUser({
-			name,
-			email,
-			password,
-		});
+		const result = await registerUser({ name, email, password });
 
 		return res.status(201).json({
 			status: "success",
 			message: "User registered successfully",
-			data: {
-				user: newUser,
-			},
+			data: { user: result },
 		});
 	} catch (err) {
 		console.error("Registration error:", err);
 
-		// Handle specific errors
 		if (err.message === "User already exists") {
 			return res.status(409).json({
 				status: "error",
@@ -34,7 +26,7 @@ export const register = async (req, res) => {
 			});
 		}
 
-		if (err.message.includes("Password must be")) {
+		if (err.message.includes("Password")) {
 			return res.status(400).json({
 				status: "error",
 				message: err.message,
@@ -52,33 +44,25 @@ export const login = async (req, res) => {
 	try {
 		const user = req.foundUser;
 		const { password } = req.body;
+		const result = await loginUser(user, password);
 
-		const { accessToken, refreshToken, user: userData } = await loginUser(user, password);
-
-		// Set HTTP-only cookies
-		res.cookie("accessToken", accessToken, {
+		// Set cookies
+		res.cookie("accessToken", result.accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
-			signed: true,
 			maxAge: 15 * 60 * 1000, // 15 minutes
-			sameSite: "strict",
 		});
 
-		res.cookie("refreshToken", refreshToken, {
+		res.cookie("refreshToken", result.refreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
-			signed: true,
 			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-			sameSite: "strict",
 		});
 
 		return res.status(200).json({
 			status: "success",
 			message: "Logged in successfully",
-			data: {
-				user: userData,
-				// Don't send tokens in response body for security
-			},
+			data: { user: result.user },
 		});
 	} catch (err) {
 		console.error("Login error:", err);
@@ -99,88 +83,49 @@ export const login = async (req, res) => {
 
 export const refresh = async (req, res) => {
 	try {
-		const refreshToken = req.signedCookies.refreshToken;
-
-		const {
-			accessToken,
-			refreshToken: newRefreshToken,
-			user,
-		} = await refreshAccessToken(refreshToken);
+		const refreshToken = req.cookies.refreshToken;
+		const result = await refreshAccessToken(refreshToken);
 
 		// Set new cookies
-		res.cookie("accessToken", accessToken, {
+		res.cookie("accessToken", result.accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
-			signed: true,
-			maxAge: 15 * 60 * 1000, // 15 minutes
-			sameSite: "strict",
+			maxAge: 15 * 60 * 1000,
 		});
 
-		res.cookie("refreshToken", newRefreshToken, {
+		res.cookie("refreshToken", result.refreshToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
-			signed: true,
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-			sameSite: "strict",
+			maxAge: 7 * 24 * 60 * 60 * 1000,
 		});
 
 		return res.status(200).json({
 			status: "success",
 			message: "Token refreshed successfully",
-			data: { user },
+			data: { user: result.user },
 		});
 	} catch (err) {
 		console.error("Refresh error:", err);
 
 		// Clear cookies on error
-		res.clearCookie("accessToken", {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			signed: true,
-		});
+		res.clearCookie("accessToken");
+		res.clearCookie("refreshToken");
 
-		res.clearCookie("refreshToken", {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			signed: true,
-		});
-
-		if (err.message.includes("token")) {
-			return res.status(401).json({
-				status: "error",
-				message: err.message,
-			});
-		}
-
-		return res.status(500).json({
+		return res.status(401).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Token refresh failed",
 		});
 	}
 };
 
 export const logout = async (req, res) => {
 	try {
-		const refreshToken = req.signedCookies.refreshToken;
-
+		const refreshToken = req.cookies.refreshToken;
 		await logoutUser(refreshToken);
 
 		// Clear cookies
-		res.clearCookie("accessToken", {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			signed: true,
-		});
-
-		res.clearCookie("refreshToken", {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			signed: true,
-		});
+		res.clearCookie("accessToken");
+		res.clearCookie("refreshToken");
 
 		return res.status(200).json({
 			status: "success",
@@ -197,7 +142,6 @@ export const logout = async (req, res) => {
 
 export const getProfile = async (req, res) => {
 	try {
-		// User data is available from auth middleware
 		const user = req.user;
 
 		return res.status(200).json({

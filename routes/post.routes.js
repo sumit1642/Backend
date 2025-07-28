@@ -12,15 +12,11 @@ import { requireAuth, optionalAuth } from "../middleware/posts.middleware.js";
 export const postRoute = express.Router();
 
 // Public routes (no auth required)
-postRoute.get("/", optionalAuth, getAllPostsController); // Optional auth for user-specific data
-postRoute.get("/:postId", optionalAuth, getPostByIdController); // Optional auth to check if user liked
+postRoute.get("/", optionalAuth, getAllPostsController);
+postRoute.get("/:postId", optionalAuth, getPostByIdController);
 
 // Protected routes (auth required)
 postRoute.post("/", requireAuth, createPostController);
 postRoute.put("/:postId", requireAuth, updatePostController);
-postRoute.patch("/:postId", requireAuth, updatePostController); // Support both PUT and PATCH
+postRoute.patch("/:postId", requireAuth, updatePostController);
 postRoute.delete("/:postId", requireAuth, deletePostController);
-
-// Additional useful routes
-postRoute.get("/user/:userId", optionalAuth, getAllPostsController); // Get posts by specific user
-postRoute.get("/tag/:tagName", optionalAuth, getAllPostsController); // Get posts by tag
