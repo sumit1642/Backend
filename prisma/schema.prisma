@@ -1,0 +1,101 @@
+// prisma/schema.prisma
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id            Int            @id @default(autoincrement())
+    email         String         @unique
+    name          String?
+    password      String
+    posts         Post[]
+    profile       Profile?
+    refreshTokens RefreshToken[]
+    comments      Comment[]
+    likes         Like[] // 👍 likes a post
+    likedTags     UserLikedTag[] // 🏷️ tags from liked posts
+}
+
+model Profile {
+    id     Int     @id @default(autoincrement())
+    bio    String?
+    userId Int     @unique
+    user   User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model RefreshToken {
+    id        Int      @id @default(autoincrement())
+    token     String   @unique
+    userId    Int
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+}
+
+model Post {
+    id        Int       @id @default(autoincrement())
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    title     String    @db.VarChar(50) // ❌ Removed @unique
+    content   String?   @db.VarChar(191)
+    published Boolean   @default(false)
+    authorId  Int
+    author    User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+    comments  Comment[]
+    likes     Like[]
+    tags      PostTag[]
+
+    @@unique([authorId, title]) //   Unique per user
+}
+
+model Comment {
+    id        Int      @id @default(autoincrement())
+    content   String
+    createdAt DateTime @default(now())
+    postId    Int
+    post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+    authorId  Int
+    author    User     @relation(fields: [authorId], references: [id])
+}
+
+model Like {
+    userId Int
+    postId Int
+
+    user User @relation(fields: [userId], references: [id])
+    post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+    @@id([userId, postId])
+}
+
+model Tag {
+    id      Int            @id @default(autoincrement())
+    name    String         @unique
+    posts   PostTag[]
+    likedBy UserLikedTag[] // Users who liked this tag through a liked post
+}
+
+model PostTag {
+    postId Int
+    tagId  Int
+
+    post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+    tag  Tag  @relation(fields: [tagId], references: [id])
+
+    @@id([postId, tagId])
+}
+
+model UserLikedTag {
+    userId Int
+    tagId  Int
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+    @@id([userId, tagId])
+}

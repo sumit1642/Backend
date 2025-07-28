@@ -1,0 +1,37 @@
+{
+	"name": "saas-blog-backend",
+	"version": "1.0.0",
+	"description": "Backend for a multi-user SaaS blog CMS using Express, JWT, and MySQL",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"start": "node index.js",
+		"dev": "nodemon index.js",
+		"lint": "echo \"No linter configured\"",
+		"test": "echo \"No tests configured\""
+	},
+	"keywords": [
+		"express",
+		"saas",
+		"blog",
+		"jwt",
+		"mysql"
+	],
+	"author": "Your Name",
+	"license": "MIT",
+	"dependencies": {
+		"@prisma/client": "^6.12.0",
+		"bcryptjs": "^3.0.2",
+		"cookie-parser": "^1.4.7",
+		"cors": "^2.8.5",
+		"crypto-js": "^4.2.0",
+		"express": "^5.1.0",
+		"jsonwebtoken": "^9.0.2"
+	},
+	"devDependencies": {
+		"@types/express": "^5.0.3",
+		"@types/jsonwebtoken": "^9.0.10",
+		"nodemon": "^3.1.10",
+		"prisma": "^6.12.0"
+	}
+}
