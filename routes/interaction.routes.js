@@ -12,11 +12,11 @@ import { validateCommentData } from "../middleware/posts.middleware.js";
 
 export const interactionRoute = express.Router();
 
-// Like routes
+// Like routes (require authentication)
 interactionRoute.post("/posts/:postId/like", requireAuth, toggleLikeController);
 
 // Comment routes
-interactionRoute.get("/posts/:postId/comments", getCommentsController); // Public
+interactionRoute.get("/posts/:postId/comments", getCommentsController); // Public - anyone can view comments
 interactionRoute.post(
 	"/posts/:postId/comments",
 	requireAuth,

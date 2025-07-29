@@ -23,7 +23,7 @@ export const getProfileController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch profile",
 		});
 	}
 };
@@ -44,12 +44,15 @@ export const updateProfileController = async (req, res) => {
 			});
 		}
 
-		// Basic validation
-		if (updateData.name && updateData.name.trim().length < 2) {
-			return res.status(400).json({
-				status: "error",
-				message: "Name must be at least 2 characters long",
-			});
+		// Enhanced validation for name
+		if (updateData.name !== undefined) {
+			const trimmedName = updateData.name ? updateData.name.trim() : "";
+			if (!trimmedName || trimmedName.length < 2) {
+				return res.status(400).json({
+					status: "error",
+					message: "Name must be at least 2 characters long",
+				});
+			}
 		}
 
 		const profile = await updateProfile(userId, updateData);
@@ -71,7 +74,7 @@ export const updateProfileController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to update profile",
 		});
 	}
 };

@@ -13,18 +13,14 @@ import {
 
 export const postRoute = express.Router();
 
-// Protected routes first
+// Protected routes (require authentication)
 postRoute.get("/my/posts", requireAuth, getMyPostsController);
 postRoute.post("/", requireAuth, validatePostData, createPostController);
-
-// Specific public routes
-postRoute.get("/user/:userId", optionalAuth, getUserPostsController);
-
-// Generic public routes
-postRoute.get("/", optionalAuth, getAllPostsController);
-
-// Parameter routes last
-postRoute.get("/:postId", optionalAuth, getPostByIdController);
 postRoute.put("/:postId", requireAuth, validatePostData, updatePostController);
 postRoute.patch("/:postId", requireAuth, validatePostData, updatePostController);
 postRoute.delete("/:postId", requireAuth, deletePostController);
+
+// Public routes (optional authentication for enhanced features)
+postRoute.get("/", optionalAuth, getAllPostsController);
+postRoute.get("/user/:userId", optionalAuth, getUserPostsController);
+postRoute.get("/:postId", optionalAuth, getPostByIdController);

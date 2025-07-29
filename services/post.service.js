@@ -1,327 +1,304 @@
 // services/post.service.js
 import { prisma } from "../utils/prisma.js";
 
+const formatPost = (post, userId = null) => ({
+	id: post.id,
+	title: post.title,
+	content: post.content,
+	published: post.published,
+	createdAt: post.createdAt,
+	updatedAt: post.updatedAt,
+	author: post.author,
+	commentsCount: post.comments?.length || 0,
+	likesCount: post.likes?.length || 0,
+	isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
+});
+
 export const createPost = async ({ title, content, published, userId }) => {
-	// Check for duplicate title per user
-	const existingPost = await prisma.post.findFirst({
-		where: {
-			title,
-			authorId: userId,
-		},
-	});
-
-	if (existingPost) {
-		throw new Error("Title already exists");
-	}
-
-	// Create post
-	const post = await prisma.post.create({
-		data: {
-			title,
-			content,
-			published,
-			authorId: userId,
-		},
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
-
-	// Format response
-	return {
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-	};
-};
-
-export const getAllPosts = async ({ published, userId }) => {
-	const whereClause = {};
-
-	if (published !== undefined) {
-		whereClause.published = published;
-	}
-
-	const posts = await prisma.post.findMany({
-		where: whereClause,
-		orderBy: { createdAt: "desc" },
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
-
-	// Format posts
-	return posts.map((post) => ({
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-		isLikedByUser: userId ? post.likes.some((like) => like.userId === userId) : false,
-	}));
-};
-
-export const getPostById = async (postId, userId) => {
-	const post = await prisma.post.findUnique({
-		where: { id: postId },
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			},
-			comments: {
-				include: {
-					author: {
-						select: {
-							id: true,
-							name: true,
-						},
-					},
-				},
-				orderBy: {
-					createdAt: "desc",
-				},
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
-
-	if (!post) {
-		throw new Error("Post not found");
-	}
-
-	// Check if current user liked this post
-	const isLikedByUser = userId ? post.likes.some((like) => like.userId === userId) : false;
-
-	// Format response
-	return {
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		comments: post.comments,
-		likesCount: post.likes.length,
-		isLikedByUser,
-	};
-};
-
-export const updatePost = async (postId, userId, updateData) => {
-	// Check if post exists and user owns it
-	const existingPost = await prisma.post.findUnique({
-		where: { id: postId },
-	});
-
-	if (!existingPost) {
-		throw new Error("Post not found");
-	}
-
-	if (existingPost.authorId !== userId) {
-		throw new Error("Unauthorized");
-	}
-
-	// Check for duplicate title if title is being updated
-	if (updateData.title && updateData.title !== existingPost.title) {
-		const duplicatePost = await prisma.post.findFirst({
+	try {
+		// Check for duplicate title per user (from schema constraint)
+		const existingPost = await prisma.post.findFirst({
 			where: {
-				title: updateData.title,
+				title,
 				authorId: userId,
-				NOT: { id: postId },
 			},
 		});
 
-		if (duplicatePost) {
+		if (existingPost) {
 			throw new Error("Title already exists");
 		}
-	}
 
-	// Update post
-	const post = await prisma.post.update({
-		where: { id: postId },
-		data: updateData,
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
+		// Create post
+		const post = await prisma.post.create({
+			data: {
+				title,
+				content,
+				published,
+				authorId: userId,
+			},
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
 				},
 			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
+		});
 
-	// Format response
-	return {
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-	};
+		return formatPost(post, userId);
+	} catch (error) {
+		console.error("Create post error:", error);
+		throw error;
+	}
+};
+
+export const getAllPosts = async ({ published, userId }) => {
+	try {
+		const whereClause = {};
+
+		if (published !== undefined) {
+			whereClause.published = published;
+		}
+
+		const posts = await prisma.post.findMany({
+			where: whereClause,
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return posts.map((post) => formatPost(post, userId));
+	} catch (error) {
+		console.error("Get all posts error:", error);
+		throw error;
+	}
+};
+
+export const getPostById = async (postId, userId) => {
+	try {
+		const post = await prisma.post.findUnique({
+			where: { id: postId },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					include: {
+						author: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+					orderBy: {
+						createdAt: "desc",
+					},
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		if (!post) {
+			throw new Error("Post not found");
+		}
+
+		// Return detailed post with comments
+		return {
+			...formatPost(post, userId),
+			comments: post.comments,
+		};
+	} catch (error) {
+		console.error("Get post by ID error:", error);
+		throw error;
+	}
+};
+
+export const updatePost = async (postId, userId, updateData) => {
+	try {
+		// Check if post exists and user owns it
+		const existingPost = await prisma.post.findUnique({
+			where: { id: postId },
+		});
+
+		if (!existingPost) {
+			throw new Error("Post not found");
+		}
+
+		if (existingPost.authorId !== userId) {
+			throw new Error("Unauthorized");
+		}
+
+		// Check for duplicate title if title is being updated
+		if (updateData.title && updateData.title !== existingPost.title) {
+			const duplicatePost = await prisma.post.findFirst({
+				where: {
+					title: updateData.title,
+					authorId: userId,
+					NOT: { id: postId },
+				},
+			});
+
+			if (duplicatePost) {
+				throw new Error("Title already exists");
+			}
+		}
+
+		// Update post
+		const post = await prisma.post.update({
+			where: { id: postId },
+			data: updateData,
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return formatPost(post, userId);
+	} catch (error) {
+		console.error("Update post error:", error);
+		throw error;
+	}
 };
 
 export const deletePost = async (postId, userId) => {
-	// Check if post exists and user owns it
-	const post = await prisma.post.findUnique({
-		where: { id: postId },
-	});
+	try {
+		// Check if post exists and user owns it
+		const post = await prisma.post.findUnique({
+			where: { id: postId },
+		});
 
-	if (!post) {
-		throw new Error("Post not found");
+		if (!post) {
+			throw new Error("Post not found");
+		}
+
+		if (post.authorId !== userId) {
+			throw new Error("Unauthorized");
+		}
+
+		// Delete post (cascade will handle related records)
+		await prisma.post.delete({
+			where: { id: postId },
+		});
+	} catch (error) {
+		console.error("Delete post error:", error);
+		throw error;
 	}
-
-	if (post.authorId !== userId) {
-		throw new Error("Unauthorized");
-	}
-
-	// Delete post (cascade will handle related records)
-	await prisma.post.delete({
-		where: { id: postId },
-	});
 };
 
 export const getUserPosts = async (targetUserId, requestingUserId) => {
-	// Check if target user exists
-	const targetUser = await prisma.user.findUnique({
-		where: { id: targetUserId },
-		select: { id: true },
-	});
+	try {
+		// Check if target user exists
+		const targetUser = await prisma.user.findUnique({
+			where: { id: targetUserId },
+			select: { id: true },
+		});
 
-	if (!targetUser) {
-		throw new Error("User not found");
-	}
+		if (!targetUser) {
+			throw new Error("User not found");
+		}
 
-	const whereClause = {
-		authorId: targetUserId,
-	};
+		const whereClause = {
+			authorId: targetUserId,
+		};
 
-	// If requesting user is not the post author, only show published posts
-	if (requestingUserId !== targetUserId) {
-		whereClause.published = true;
-	}
+		// If requesting user is not the post author, only show published posts
+		if (requestingUserId !== targetUserId) {
+			whereClause.published = true;
+		}
 
-	const posts = await prisma.post.findMany({
-		where: whereClause,
-		orderBy: { createdAt: "desc" },
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
+		const posts = await prisma.post.findMany({
+			where: whereClause,
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
 				},
 			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
+		});
 
-	// Format posts
-	return posts.map((post) => ({
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-		isLikedByUser: requestingUserId
-			? post.likes.some((like) => like.userId === requestingUserId)
-			: false,
-	}));
+		return posts.map((post) => formatPost(post, requestingUserId));
+	} catch (error) {
+		console.error("Get user posts error:", error);
+		throw error;
+	}
 };
 
 export const getMyPosts = async (userId) => {
-	const posts = await prisma.post.findMany({
-		where: {
-			authorId: userId,
-		},
-		orderBy: { createdAt: "desc" },
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
+	try {
+		const posts = await prisma.post.findMany({
+			where: {
+				authorId: userId,
+			},
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
 				},
 			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
+		});
 
-	// Format posts - show all posts (published and unpublished) for the owner
-	return posts.map((post) => ({
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-		isLikedByUser: post.likes.some((like) => like.userId === userId),
-	}));
+		return posts.map((post) => formatPost(post, userId));
+	} catch (error) {
+		console.error("Get my posts error:", error);
+		throw error;
+	}
 };

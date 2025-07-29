@@ -9,6 +9,22 @@ import {
 	getMyPosts,
 } from "../services/post.service.js";
 
+const validatePostId = (postId) => {
+	const parsedId = parseInt(postId);
+	if (isNaN(parsedId) || parsedId <= 0) {
+		return null;
+	}
+	return parsedId;
+};
+
+const validateUserId = (userId) => {
+	const parsedId = parseInt(userId);
+	if (isNaN(parsedId) || parsedId <= 0) {
+		return null;
+	}
+	return parsedId;
+};
+
 export const createPostController = async (req, res) => {
 	try {
 		const { title, content, published = false } = req.body;
@@ -52,7 +68,7 @@ export const createPostController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to create post",
 		});
 	}
 };
@@ -76,17 +92,17 @@ export const getAllPostsController = async (req, res) => {
 		console.error("Get Posts Controller Error:", err);
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch posts",
 		});
 	}
 };
 
 export const getPostByIdController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 		const userId = req.user?.userId;
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
@@ -112,18 +128,18 @@ export const getPostByIdController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch post",
 		});
 	}
 };
 
 export const updatePostController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 		const userId = req.user.userId;
 		const { title, content, published } = req.body;
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
@@ -175,17 +191,17 @@ export const updatePostController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to update post",
 		});
 	}
 };
 
 export const deletePostController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 		const userId = req.user.userId;
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
@@ -217,17 +233,17 @@ export const deletePostController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to delete post",
 		});
 	}
 };
 
 export const getUserPostsController = async (req, res) => {
 	try {
-		const targetUserId = parseInt(req.params.userId);
+		const targetUserId = validateUserId(req.params.userId);
 		const requestingUserId = req.user?.userId;
 
-		if (isNaN(targetUserId)) {
+		if (!targetUserId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid user ID",
@@ -253,7 +269,7 @@ export const getUserPostsController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch user posts",
 		});
 	}
 };
@@ -272,7 +288,7 @@ export const getMyPostsController = async (req, res) => {
 		console.error("Get My Posts Controller Error:", err);
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch your posts",
 		});
 	}
 };

@@ -5,7 +5,14 @@ import {
 	refreshAccessToken,
 	logoutUser,
 } from "../services/auth.service.js";
-import { getProfile } from "../services/profile.service.js";
+
+const createSecureCookieOptions = (maxAge) => ({
+	httpOnly: true,
+	secure: process.env.NODE_ENV === "production",
+	sameSite: "strict",
+	path: "/",
+	maxAge,
+});
 
 export const register = async (req, res) => {
 	try {
@@ -36,7 +43,7 @@ export const register = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Registration failed",
 		});
 	}
 };
@@ -47,18 +54,13 @@ export const login = async (req, res) => {
 		const { password } = req.body;
 		const result = await loginUser(user, password);
 
-		// Set cookies
-		res.cookie("accessToken", result.accessToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			maxAge: 15 * 60 * 1000, // 15 minutes
-		});
-
-		res.cookie("refreshToken", result.refreshToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-		});
+		// Set secure cookies
+		res.cookie("accessToken", result.accessToken, createSecureCookieOptions(15 * 60 * 1000)); // 15 minutes
+		res.cookie(
+			"refreshToken",
+			result.refreshToken,
+			createSecureCookieOptions(7 * 24 * 60 * 60 * 1000),
+		); // 7 days
 
 		return res.status(200).json({
 			status: "success",
@@ -77,7 +79,7 @@ export const login = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Login failed",
 		});
 	}
 };
@@ -85,20 +87,23 @@ export const login = async (req, res) => {
 export const refresh = async (req, res) => {
 	try {
 		const refreshToken = req.cookies.refreshToken;
+
+		if (!refreshToken) {
+			return res.status(401).json({
+				status: "error",
+				message: "Refresh token required",
+			});
+		}
+
 		const result = await refreshAccessToken(refreshToken);
 
-		// Set new cookies
-		res.cookie("accessToken", result.accessToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			maxAge: 15 * 60 * 1000,
-		});
-
-		res.cookie("refreshToken", result.refreshToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			maxAge: 7 * 24 * 60 * 60 * 1000,
-		});
+		// Set new secure cookies
+		res.cookie("accessToken", result.accessToken, createSecureCookieOptions(15 * 60 * 1000));
+		res.cookie(
+			"refreshToken",
+			result.refreshToken,
+			createSecureCookieOptions(7 * 24 * 60 * 60 * 1000),
+		);
 
 		return res.status(200).json({
 			status: "success",
@@ -109,8 +114,8 @@ export const refresh = async (req, res) => {
 		console.error("Refresh error:", err);
 
 		// Clear cookies on error
-		res.clearCookie("accessToken");
-		res.clearCookie("refreshToken");
+		res.clearCookie("accessToken", { path: "/" });
+		res.clearCookie("refreshToken", { path: "/" });
 
 		return res.status(401).json({
 			status: "error",
@@ -125,8 +130,8 @@ export const logout = async (req, res) => {
 		await logoutUser(refreshToken);
 
 		// Clear cookies
-		res.clearCookie("accessToken");
-		res.clearCookie("refreshToken");
+		res.clearCookie("accessToken", { path: "/" });
+		res.clearCookie("refreshToken", { path: "/" });
 
 		return res.status(200).json({
 			status: "success",
@@ -134,36 +139,14 @@ export const logout = async (req, res) => {
 		});
 	} catch (err) {
 		console.error("Logout error:", err);
-		return res.status(500).json({
-			status: "error",
-			message: "Internal server error",
-		});
-	}
-};
 
-export const getProfileController = async (req, res) => {
-	try {
-		const userId = req.user.userId;
-		const profile = await getProfile(userId);
+		// Still clear cookies even if there's an error
+		res.clearCookie("accessToken", { path: "/" });
+		res.clearCookie("refreshToken", { path: "/" });
 
 		return res.status(200).json({
 			status: "success",
-			message: "Profile fetched successfully",
-			data: { profile },
-		});
-	} catch (err) {
-		console.error("Get profile error:", err);
-
-		if (err.message === "User not found") {
-			return res.status(404).json({
-				status: "error",
-				message: "User not found",
-			});
-		}
-
-		return res.status(500).json({
-			status: "error",
-			message: "Internal server error",
+			message: "Logged out successfully",
 		});
 	}
 };

@@ -7,12 +7,28 @@ import {
 	updateComment,
 } from "../services/interaction.service.js";
 
+const validatePostId = (postId) => {
+	const parsedId = parseInt(postId);
+	if (isNaN(parsedId) || parsedId <= 0) {
+		return null;
+	}
+	return parsedId;
+};
+
+const validateCommentId = (commentId) => {
+	const parsedId = parseInt(commentId);
+	if (isNaN(parsedId) || parsedId <= 0) {
+		return null;
+	}
+	return parsedId;
+};
+
 export const toggleLikeController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 		const userId = req.user.userId;
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
@@ -41,21 +57,28 @@ export const toggleLikeController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to toggle like",
 		});
 	}
 };
 
 export const addCommentController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 		const userId = req.user.userId;
 		const { content } = req.body;
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
+			});
+		}
+
+		if (!content || !content.trim()) {
+			return res.status(400).json({
+				status: "error",
+				message: "Comment content is required",
 			});
 		}
 
@@ -78,16 +101,16 @@ export const addCommentController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to add comment",
 		});
 	}
 };
 
 export const getCommentsController = async (req, res) => {
 	try {
-		const postId = parseInt(req.params.postId);
+		const postId = validatePostId(req.params.postId);
 
-		if (isNaN(postId)) {
+		if (!postId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid post ID",
@@ -113,17 +136,17 @@ export const getCommentsController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to fetch comments",
 		});
 	}
 };
 
 export const deleteCommentController = async (req, res) => {
 	try {
-		const commentId = parseInt(req.params.commentId);
+		const commentId = validateCommentId(req.params.commentId);
 		const userId = req.user.userId;
 
-		if (isNaN(commentId)) {
+		if (!commentId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid comment ID",
@@ -155,21 +178,28 @@ export const deleteCommentController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to delete comment",
 		});
 	}
 };
 
 export const updateCommentController = async (req, res) => {
 	try {
-		const commentId = parseInt(req.params.commentId);
+		const commentId = validateCommentId(req.params.commentId);
 		const userId = req.user.userId;
 		const { content } = req.body;
 
-		if (isNaN(commentId)) {
+		if (!commentId) {
 			return res.status(400).json({
 				status: "error",
 				message: "Invalid comment ID",
+			});
+		}
+
+		if (!content || !content.trim()) {
+			return res.status(400).json({
+				status: "error",
+				message: "Comment content is required",
 			});
 		}
 
@@ -199,7 +229,7 @@ export const updateCommentController = async (req, res) => {
 
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Failed to update comment",
 		});
 	}
 };

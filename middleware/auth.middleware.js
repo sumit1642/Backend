@@ -7,6 +7,15 @@ const isValidEmail = (email) => {
 	return emailRegex.test(email);
 };
 
+// Sanitize input to prevent XSS
+const sanitizeInput = (input) => {
+	if (typeof input !== "string") return input;
+	return input
+		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+		.replace(/<[^>]*>/g, "")
+		.trim();
+};
+
 // REGISTER validation
 export const registerValidation = async (req, res, next) => {
 	try {
@@ -34,21 +43,32 @@ export const registerValidation = async (req, res, next) => {
 			});
 		}
 
-		// Basic validation
-		if (name.trim().length < 2) {
+		// Sanitize and validate name
+		const sanitizedName = sanitizeInput(name.trim());
+		if (sanitizedName.length < 2) {
 			return res.status(400).json({
 				status: "error",
 				message: "Name must be at least 2 characters long",
 			});
 		}
 
-		if (!isValidEmail(email.trim())) {
+		if (sanitizedName.length > 50) {
+			return res.status(400).json({
+				status: "error",
+				message: "Name cannot be longer than 50 characters",
+			});
+		}
+
+		// Validate email
+		const sanitizedEmail = email.trim().toLowerCase();
+		if (!isValidEmail(sanitizedEmail)) {
 			return res.status(400).json({
 				status: "error",
 				message: "Please provide a valid email address",
 			});
 		}
 
+		// Validate password
 		if (password.length < 6) {
 			return res.status(400).json({
 				status: "error",
@@ -56,9 +76,16 @@ export const registerValidation = async (req, res, next) => {
 			});
 		}
 
+		if (password.length > 128) {
+			return res.status(400).json({
+				status: "error",
+				message: "Password cannot be longer than 128 characters",
+			});
+		}
+
 		// Check if user already exists
 		const existingUser = await prisma.user.findUnique({
-			where: { email: email.trim().toLowerCase() },
+			where: { email: sanitizedEmail },
 		});
 
 		if (existingUser) {
@@ -70,8 +97,8 @@ export const registerValidation = async (req, res, next) => {
 
 		// Clean data for next step
 		req.body = {
-			name: name.trim(),
-			email: email.trim().toLowerCase(),
+			name: sanitizedName,
+			email: sanitizedEmail,
 			password: password,
 		};
 
@@ -80,7 +107,7 @@ export const registerValidation = async (req, res, next) => {
 		console.error("Register validation error:", error);
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Validation failed",
 		});
 	}
 };
@@ -105,8 +132,9 @@ export const loginValidation = async (req, res, next) => {
 			});
 		}
 
-		// Basic email validation
-		if (!isValidEmail(email.trim())) {
+		// Sanitize and validate email
+		const sanitizedEmail = email.trim().toLowerCase();
+		if (!isValidEmail(sanitizedEmail)) {
 			return res.status(400).json({
 				status: "error",
 				message: "Please provide a valid email address",
@@ -115,7 +143,7 @@ export const loginValidation = async (req, res, next) => {
 
 		// Find user
 		const user = await prisma.user.findUnique({
-			where: { email: email.trim().toLowerCase() },
+			where: { email: sanitizedEmail },
 		});
 
 		if (!user) {
@@ -126,12 +154,13 @@ export const loginValidation = async (req, res, next) => {
 		}
 
 		req.foundUser = user;
+		req.body.password = password; // Keep original password for bcrypt comparison
 		next();
 	} catch (error) {
 		console.error("Login validation error:", error);
 		return res.status(500).json({
 			status: "error",
-			message: "Internal server error",
+			message: "Validation failed",
 		});
 	}
 };
