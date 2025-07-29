@@ -95,53 +95,6 @@ export const getAllPosts = async ({ published, userId }) => {
 	}));
 };
 
-export const getUserPosts = async (userId, requestingUserId) => {
-	const whereClause = {
-		authorId: userId,
-	};
-
-	// If requesting user is not the author, only show published posts
-	if (requestingUserId !== userId) {
-		whereClause.published = true;
-	}
-
-	const posts = await prisma.post.findMany({
-		where: whereClause,
-		orderBy: { createdAt: "desc" },
-		include: {
-			author: {
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			},
-			comments: {
-				select: { id: true },
-			},
-			likes: {
-				select: { userId: true },
-			},
-		},
-	});
-
-	// Format posts
-	return posts.map((post) => ({
-		id: post.id,
-		title: post.title,
-		content: post.content,
-		published: post.published,
-		createdAt: post.createdAt,
-		updatedAt: post.updatedAt,
-		author: post.author,
-		commentsCount: post.comments.length,
-		likesCount: post.likes.length,
-		isLikedByUser: requestingUserId
-			? post.likes.some((like) => like.userId === requestingUserId)
-			: false,
-	}));
-};
-
 export const getPostById = async (postId, userId) => {
 	const post = await prisma.post.findUnique({
 		where: { id: postId },
@@ -276,4 +229,99 @@ export const deletePost = async (postId, userId) => {
 	await prisma.post.delete({
 		where: { id: postId },
 	});
+};
+
+export const getUserPosts = async (targetUserId, requestingUserId) => {
+	// Check if target user exists
+	const targetUser = await prisma.user.findUnique({
+		where: { id: targetUserId },
+		select: { id: true },
+	});
+
+	if (!targetUser) {
+		throw new Error("User not found");
+	}
+
+	const whereClause = {
+		authorId: targetUserId,
+	};
+
+	// If requesting user is not the post author, only show published posts
+	if (requestingUserId !== targetUserId) {
+		whereClause.published = true;
+	}
+
+	const posts = await prisma.post.findMany({
+		where: whereClause,
+		orderBy: { createdAt: "desc" },
+		include: {
+			author: {
+				select: {
+					id: true,
+					name: true,
+					email: true,
+				},
+			},
+			comments: {
+				select: { id: true },
+			},
+			likes: {
+				select: { userId: true },
+			},
+		},
+	});
+
+	// Format posts
+	return posts.map((post) => ({
+		id: post.id,
+		title: post.title,
+		content: post.content,
+		published: post.published,
+		createdAt: post.createdAt,
+		updatedAt: post.updatedAt,
+		author: post.author,
+		commentsCount: post.comments.length,
+		likesCount: post.likes.length,
+		isLikedByUser: requestingUserId
+			? post.likes.some((like) => like.userId === requestingUserId)
+			: false,
+	}));
+};
+
+export const getMyPosts = async (userId) => {
+	const posts = await prisma.post.findMany({
+		where: {
+			authorId: userId,
+		},
+		orderBy: { createdAt: "desc" },
+		include: {
+			author: {
+				select: {
+					id: true,
+					name: true,
+					email: true,
+				},
+			},
+			comments: {
+				select: { id: true },
+			},
+			likes: {
+				select: { userId: true },
+			},
+		},
+	});
+
+	// Format posts - show all posts (published and unpublished) for the owner
+	return posts.map((post) => ({
+		id: post.id,
+		title: post.title,
+		content: post.content,
+		published: post.published,
+		createdAt: post.createdAt,
+		updatedAt: post.updatedAt,
+		author: post.author,
+		commentsCount: post.comments.length,
+		likesCount: post.likes.length,
+		isLikedByUser: post.likes.some((like) => like.userId === userId),
+	}));
 };

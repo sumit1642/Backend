@@ -5,6 +5,8 @@ import {
 	getPostById,
 	updatePost,
 	deletePost,
+	getUserPosts,
+	getMyPosts,
 } from "../services/post.service.js";
 
 export const createPostController = async (req, res) => {
@@ -213,6 +215,61 @@ export const deletePostController = async (req, res) => {
 			});
 		}
 
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
+	}
+};
+
+export const getUserPostsController = async (req, res) => {
+	try {
+		const targetUserId = parseInt(req.params.userId);
+		const requestingUserId = req.user?.userId;
+
+		if (isNaN(targetUserId)) {
+			return res.status(400).json({
+				status: "error",
+				message: "Invalid user ID",
+			});
+		}
+
+		const posts = await getUserPosts(targetUserId, requestingUserId);
+
+		return res.status(200).json({
+			status: "success",
+			message: "User posts fetched successfully",
+			data: { posts },
+		});
+	} catch (err) {
+		console.error("Get User Posts Controller Error:", err);
+
+		if (err.message === "User not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "User not found",
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Internal server error",
+		});
+	}
+};
+
+export const getMyPostsController = async (req, res) => {
+	try {
+		const userId = req.user.userId;
+		const posts = await getMyPosts(userId);
+
+		return res.status(200).json({
+			status: "success",
+			message: "Your posts fetched successfully",
+			data: { posts },
+		});
+	} catch (err) {
+		console.error("Get My Posts Controller Error:", err);
 		return res.status(500).json({
 			status: "error",
 			message: "Internal server error",

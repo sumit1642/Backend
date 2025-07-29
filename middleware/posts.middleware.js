@@ -1,6 +1,7 @@
-// middleware/post.middleware.js
+// middleware/posts.middleware.js
+import jwt from "jsonwebtoken";
 
-
+// Required authentication - fails if no token
 export const requireAuth = async (req, res, next) => {
 	try {
 		const accessToken = req.cookies?.accessToken;
@@ -51,6 +52,8 @@ export const optionalAuth = async (req, res, next) => {
 		next();
 	}
 };
+
+// Validate post data
 export const validatePostData = (req, res, next) => {
 	const { title, content } = req.body;
 
@@ -91,6 +94,7 @@ export const validatePostData = (req, res, next) => {
 	next();
 };
 
+// Validate comment data
 export const validateCommentData = (req, res, next) => {
 	const { content } = req.body;
 

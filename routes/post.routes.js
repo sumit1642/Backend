@@ -13,12 +13,12 @@ import {
 
 export const postRoute = express.Router();
 
-// Public routes (no auth required)
-postRoute.get("/", optionalAuth, getAllPostsController);
+// Public routes (accessible without login)
 postRoute.get("/user/:userId", optionalAuth, getUserPostsController);
+postRoute.get("/", optionalAuth, getAllPostsController);
 postRoute.get("/:postId", optionalAuth, getPostByIdController);
 
-// Protected routes (auth required)
+// Protected routes (require login)
 postRoute.get("/my/posts", requireAuth, getMyPostsController);
 postRoute.post("/", requireAuth, validatePostData, createPostController);
 postRoute.put("/:postId", requireAuth, validatePostData, updatePostController);
