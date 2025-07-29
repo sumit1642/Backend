@@ -1,110 +1,47 @@
 // services/post.service.js
 import { prisma } from "../utils/prisma.js";
 
-export const createPostService = async (req, res) => {
+const formatPost = (post, userId = null) => ({
+	id: post.id,
+	title: post.title,
+	content: post.content,
+	published: post.published,
+	createdAt: post.createdAt,
+	updatedAt: post.updatedAt,
+	author: post.author,
+	commentsCount: post.comments?.length || 0,
+	likesCount: post.likes?.length || 0,
+	isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
+});
+
+export const createPost = async ({ title, content, published, userId }) => {
 	try {
-		const { title, content, tags } = req.body;
-
-		if (!title || !content || !Array.isArray(tags) || tags.length === 0) {
-			return res.status(400).json({ msg: "Title, content, and tags are required" });
-		}
-		if (title.trim().length > 50) {
-			return res.status(400).json({ msg: "Title length should be under 50 characters" });
-		}
-
+		// Check for duplicate title per user (from schema constraint)
 		const existingPost = await prisma.post.findFirst({
 			where: {
 				title,
-				authorId: req.user.userId,
+				authorId: userId,
 			},
 		});
 
 		if (existingPost) {
-			return res.status(409).json({ msg: "You already have a post with this title" });
+			throw new Error("Title already exists");
 		}
 
-		const newPost = await prisma.post.create({
+		// Create post
+		const post = await prisma.post.create({
 			data: {
 				title,
 				content,
-				author: {
-					connect: {
-						id: req.user.userId,
-					},
-				},
+				published,
+				authorId: userId,
 			},
-		});
-
-		const tagRecords = await Promise.all(
-			tags.map((tagName) =>
-				prisma.tag.upsert({
-					where: { name: tagName },
-					update: {},
-					create: { name: tagName },
-				}),
-			),
-		);
-
-		await Promise.all(
-			tagRecords.map((tag) =>
-				prisma.postTag.create({
-					data: {
-						postId: newPost.id,
-						tagId: tag.id,
-					},
-				}),
-			),
-		);
-
-		const postWithTags = await prisma.post.findUnique({
-			where: { id: newPost.id },
-			include: {
-				tags: {
-					select: {
-						tag: {
-							select: { id: true, name: true },
-						},
-					},
-				},
-			},
-		});
-
-		const tagList = postWithTags.tags.map((pt) => pt.tag);
-
-		return res.status(201).json({
-			msg: "Post created successfully",
-			post: {
-				...postWithTags,
-				tags: tagList,
-			},
-		});
-	} catch (err) {
-		console.error("Error creating post:", err);
-		return res.status(500).json({ msg: "Internal server error" });
-	}
-};
-
-export const getAllPostsService = async (req, res) => {
-	try {
-		const posts = await prisma.post.findMany({
-			where: { published: true },
-			orderBy: { createdAt: "desc" },
 			include: {
 				author: {
 					select: {
 						id: true,
 						name: true,
 						email: true,
-					},
-				},
-				tags: {
-					select: {
-						tag: {
-							select: {
-								id: true,
-								name: true,
-							},
-						},
 					},
 				},
 				comments: {
@@ -116,57 +53,252 @@ export const getAllPostsService = async (req, res) => {
 			},
 		});
 
-		const formattedPosts = posts.map((post) => ({
-			id: post.id,
-			title: post.title,
-			content: post.content,
-			published: post.published,
-			createdAt: post.createdAt,
-			updatedAt: post.updatedAt,
-			author: post.author,
-			tags: post.tags.map((t) => t.tag),
-			commentsCount: post.comments.length,
-			likesCount: post.likes.length,
-		}));
-
-		return res.status(200).json({
-			msg: "Fetched all posts",
-			count: formattedPosts.length,
-			posts: formattedPosts,
-		});
-	} catch (err) {
-		console.error("Error fetching posts:", err);
-		return res.status(500).json({ msg: "Internal server error" });
+		return formatPost(post, userId);
+	} catch (error) {
+		console.error("Create post error:", error);
+		throw error;
 	}
 };
 
-export const deletePostService = async (req, res) => {
+export const getAllPosts = async ({ published, userId }) => {
 	try {
-		const postId = parseInt(req.params.postId);
-		const userId = req.user?.userId;
+		const whereClause = {};
 
-		if (isNaN(postId)) {
-			return res.status(400).json({ msg: "Invalid post ID" });
+		if (published !== undefined) {
+			whereClause.published = published;
 		}
 
+		const posts = await prisma.post.findMany({
+			where: whereClause,
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return posts.map((post) => formatPost(post, userId));
+	} catch (error) {
+		console.error("Get all posts error:", error);
+		throw error;
+	}
+};
+
+export const getPostById = async (postId, userId) => {
+	try {
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
-			select: { authorId: true },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					include: {
+						author: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+					orderBy: {
+						createdAt: "desc",
+					},
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
 		});
 
 		if (!post) {
-			return res.status(404).json({ msg: "Post not found" });
+			throw new Error("Post not found");
+		}
+
+		// Return detailed post with comments
+		return {
+			...formatPost(post, userId),
+			comments: post.comments,
+		};
+	} catch (error) {
+		console.error("Get post by ID error:", error);
+		throw error;
+	}
+};
+
+export const updatePost = async (postId, userId, updateData) => {
+	try {
+		// Check if post exists and user owns it
+		const existingPost = await prisma.post.findUnique({
+			where: { id: postId },
+		});
+
+		if (!existingPost) {
+			throw new Error("Post not found");
+		}
+
+		if (existingPost.authorId !== userId) {
+			throw new Error("Unauthorized");
+		}
+
+		// Check for duplicate title if title is being updated
+		if (updateData.title && updateData.title !== existingPost.title) {
+			const duplicatePost = await prisma.post.findFirst({
+				where: {
+					title: updateData.title,
+					authorId: userId,
+					NOT: { id: postId },
+				},
+			});
+
+			if (duplicatePost) {
+				throw new Error("Title already exists");
+			}
+		}
+
+		// Update post
+		const post = await prisma.post.update({
+			where: { id: postId },
+			data: updateData,
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return formatPost(post, userId);
+	} catch (error) {
+		console.error("Update post error:", error);
+		throw error;
+	}
+};
+
+export const deletePost = async (postId, userId) => {
+	try {
+		// Check if post exists and user owns it
+		const post = await prisma.post.findUnique({
+			where: { id: postId },
+		});
+
+		if (!post) {
+			throw new Error("Post not found");
 		}
 
 		if (post.authorId !== userId) {
-			return res.status(403).json({ msg: "You are not authorized to delete this post" });
+			throw new Error("Unauthorized");
 		}
 
-		await prisma.post.delete({ where: { id: postId } });
+		// Delete post (cascade will handle related records)
+		await prisma.post.delete({
+			where: { id: postId },
+		});
+	} catch (error) {
+		console.error("Delete post error:", error);
+		throw error;
+	}
+};
 
-		return res.status(200).json({ msg: "Post deleted successfully" });
-	} catch (err) {
-		console.error("Error deleting post:", err);
-		return res.status(500).json({ msg: "Internal server error" });
+export const getUserPosts = async (targetUserId, requestingUserId) => {
+	try {
+		// Check if target user exists
+		const targetUser = await prisma.user.findUnique({
+			where: { id: targetUserId },
+			select: { id: true },
+		});
+
+		if (!targetUser) {
+			throw new Error("User not found");
+		}
+
+		const whereClause = {
+			authorId: targetUserId,
+		};
+
+		// If requesting user is not the post author, only show published posts
+		if (requestingUserId !== targetUserId) {
+			whereClause.published = true;
+		}
+
+		const posts = await prisma.post.findMany({
+			where: whereClause,
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return posts.map((post) => formatPost(post, requestingUserId));
+	} catch (error) {
+		console.error("Get user posts error:", error);
+		throw error;
+	}
+};
+
+export const getMyPosts = async (userId) => {
+	try {
+		const posts = await prisma.post.findMany({
+			where: {
+				authorId: userId,
+			},
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+			},
+		});
+
+		return posts.map((post) => formatPost(post, userId));
+	} catch (error) {
+		console.error("Get my posts error:", error);
+		throw error;
 	}
 };
