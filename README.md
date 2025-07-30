@@ -823,7 +823,7 @@ curl http://localhost:3000/health
 
 ---
 
-## 📝 Additional Notes
+## 📝 Additional Notes for me
 
 1. **Database:** MySQL with Prisma ORM
 2. **Pagination:** Not implemented yet (ready for future enhancement)
