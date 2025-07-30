@@ -9,10 +9,10 @@ import { tagRoute } from "./routes/tag.routes.js";
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
-const expressApplication = express();
+const app = express();
 
 // Security headers middleware - protect against common vulnerabilities
-expressApplication.use((req, res, next) => {
+app.use((req, res, next) => {
 	res.setHeader("X-Content-Type-Options", "nosniff");
 	res.setHeader("X-Frame-Options", "DENY"); 
 	res.setHeader("X-XSS-Protection", "1; mode=block");
@@ -20,9 +20,9 @@ expressApplication.use((req, res, next) => {
 });
 
 // Basic middleware configuration
-expressApplication.use(express.json({ limit: "10mb" })); 
-expressApplication.use(express.urlencoded({ extended: true, limit: "10mb" }));
-expressApplication.use(cookieParser()); 
+app.use(express.json({ limit: "10mb" })); 
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser()); 
 
 // CORS configuration for cross-origin requests
 const corsConfigurationOptions = {
@@ -37,7 +37,7 @@ const corsConfigurationOptions = {
 };
 
 // Apply CORS middleware manually for better control
-expressApplication.use((req, res, next) => {
+app.use((req, res, next) => {
 	const requestOrigin = req.headers.origin;
 
 	// Handle production origins
@@ -63,7 +63,7 @@ expressApplication.use((req, res, next) => {
 });
 
 // Health check endpoint - verify server status
-expressApplication.get("/health", (req, res) => {
+app.get("/health", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Server is running",
@@ -73,17 +73,17 @@ expressApplication.get("/health", (req, res) => {
 });
 
 // API Routes configuration
-expressApplication.use("/api/auth", authenticationRoutes);
-expressApplication.use("/api/posts", postRoute); 
-expressApplication.use("/api/interactions", interactionRoute);
-expressApplication.use("/api/profile", profileRoute);
-expressApplication.use("/api/tags", tagRoute);
+app.use("/api/auth", authenticationRoutes);
+app.use("/api/posts", postRoute); 
+app.use("/api/interactions", interactionRoute);
+app.use("/api/profile", profileRoute);
+app.use("/api/tags", tagRoute);
 
 // Home route - display all published posts with optional authentication
-expressApplication.get("/", optionalAuth, getAllPostsController);
+app.get("/", optionalAuth, getAllPostsController);
 
 // API Documentation endpoint
-expressApplication.get("/api", (req, res) => {
+app.get("/api", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Blog API v1.0",
@@ -99,7 +99,7 @@ expressApplication.get("/api", (req, res) => {
 });
 
 // 404 handler specifically for API routes
-expressApplication.use("/api", (req, res) => {
+app.use("/api", (req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "API endpoint not found",
@@ -114,7 +114,7 @@ expressApplication.use("/api", (req, res) => {
 });
 
 // General 404 handler for all other routes
-expressApplication.use((req, res) => {
+app.use((req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "Route not found",
@@ -122,7 +122,7 @@ expressApplication.use((req, res) => {
 });
 
 // Enhanced error handling middleware
-expressApplication.use((err, req, res, next) => {
+app.use((err, req, res, next) => {
 	console.error("Unhandled application error:", {
 		message: err.message,
 		stack: err.stack,
@@ -158,7 +158,7 @@ process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
 // Start server
 const SERVER_PORT = process.env.PORT || 3000;
 
-expressApplication.listen(SERVER_PORT, () => {
+app.listen(SERVER_PORT, () => {
 	console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
 	console.log(`📊 Health check: http://localhost:${SERVER_PORT}/health`);
 	console.log(`📖 API info: http://localhost:${SERVER_PORT}/api`);
