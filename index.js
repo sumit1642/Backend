@@ -109,7 +109,7 @@ app.use("/api", (req, res) => {
 			"/api/interactions",
 			"/api/profile",
 			"/api/tags",
-		], // Added tags
+		], 
 	});
 });
 
