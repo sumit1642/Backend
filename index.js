@@ -1,66 +1,68 @@
 // index.js
 import express from "express";
 import cookieParser from "cookie-parser";
-import { authRoute } from "./routes/auth.routes.js";
+import { authenticationRoutes } from "./routes/auth.routes.js";
 import { postRoute } from "./routes/post.routes.js";
 import { interactionRoute } from "./routes/interaction.routes.js";
 import { profileRoute } from "./routes/profile.routes.js";
-import { tagRoute } from "./routes/tag.routes.js";
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
-const app = express();
+const expressApplication = express();
 
-// Security headers
-app.use((req, res, next) => {
-	res.setHeader("X-Content-Type-Options", "nosniff");
-	res.setHeader("X-Frame-Options", "DENY");
-	res.setHeader("X-XSS-Protection", "1; mode=block");
+// Security headers middleware - protect against common vulnerabilities
+expressApplication.use((req, res, next) => {
+	res.setHeader("X-Content-Type-Options", "nosniff"); // Prevent MIME type sniffing
+	res.setHeader("X-Frame-Options", "DENY"); // Prevent clickjacking
+	res.setHeader("X-XSS-Protection", "1; mode=block"); // Enable XSS protection
 	next();
 });
 
-// Basic middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(cookieParser());
+// Basic middleware configuration
+expressApplication.use(express.json({ limit: "10mb" })); // Parse JSON bodies with size limit
+expressApplication.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded bodies
+expressApplication.use(cookieParser()); // Parse cookies from requests
 
-// CORS configuration
-const corsOptions = {
+// CORS configuration for cross-origin requests
+const corsConfigurationOptions = {
 	origin:
 		process.env.NODE_ENV === "production"
 			? process.env.ALLOWED_ORIGINS?.split(",") || false
 			: "http://localhost:3000",
-	credentials: true,
+	credentials: true, // Allow cookies to be sent
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
 	optionsSuccessStatus: 200,
 };
 
-// Apply CORS
-app.use((req, res, next) => {
-	const origin = req.headers.origin;
+// Apply CORS middleware manually for better control
+expressApplication.use((req, res, next) => {
+	const requestOrigin = req.headers.origin;
 
+	// Handle production origins
 	if (process.env.NODE_ENV === "production") {
-		const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
-		if (allowedOrigins.includes(origin)) {
-			res.header("Access-Control-Allow-Origin", origin);
+		const allowedOriginsList = process.env.ALLOWED_ORIGINS?.split(",") || [];
+		if (allowedOriginsList.includes(requestOrigin)) {
+			res.header("Access-Control-Allow-Origin", requestOrigin);
 		}
 	} else {
-		res.header("Access-Control-Allow-Origin", corsOptions.origin);
+		// Development mode - allow configured origin
+		res.header("Access-Control-Allow-Origin", corsConfigurationOptions.origin);
 	}
 
 	res.header("Access-Control-Allow-Credentials", "true");
-	res.header("Access-Control-Allow-Headers", corsOptions.allowedHeaders.join(", "));
-	res.header("Access-Control-Allow-Methods", corsOptions.methods.join(", "));
+	res.header("Access-Control-Allow-Headers", corsConfigurationOptions.allowedHeaders.join(", "));
+	res.header("Access-Control-Allow-Methods", corsConfigurationOptions.methods.join(", "));
 
+	// Handle preflight OPTIONS requests
 	if (req.method === "OPTIONS") {
 		return res.status(200).end();
 	}
 	next();
 });
 
-// Health check
-app.get("/health", (req, res) => {
+// Health check endpoint - verify server status
+expressApplication.get("/health", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Server is running",
@@ -69,18 +71,17 @@ app.get("/health", (req, res) => {
 	});
 });
 
-// API Routes
-app.use("/api/auth", authRoute);
-app.use("/api/posts", postRoute);
-app.use("/api/interactions", interactionRoute);
-app.use("/api/profile", profileRoute);
-app.use("/api/tags", tagRoute);
+// API Routes configuration
+expressApplication.use("/api/auth", authenticationRoutes); // Authentication routes
+expressApplication.use("/api/posts", postRoute); // Post management routes
+expressApplication.use("/api/interactions", interactionRoute); // Like/comment routes
+expressApplication.use("/api/profile", profileRoute); // User profile routes
 
-// Home route - show all published posts
-app.get("/", optionalAuth, getAllPostsController);
+// Home route - display all published posts with optional authentication
+expressApplication.get("/", optionalAuth, getAllPostsController);
 
-// API Documentation route
-app.get("/api", (req, res) => {
+// API Documentation endpoint
+expressApplication.get("/api", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Blog API v1.0",
@@ -89,38 +90,31 @@ app.get("/api", (req, res) => {
 			posts: "/api/posts",
 			interactions: "/api/interactions",
 			profile: "/api/profile",
-			tags: "/api/tags",
 		},
 		docs: "Visit /api/docs for detailed documentation",
 	});
 });
 
-// 404 handler for API routes
-app.use("/api", (req, res) => {
+// 404 handler specifically for API routes
+expressApplication.use("/api", (req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "API endpoint not found",
-		availableEndpoints: [
-			"/api/auth",
-			"/api/posts",
-			"/api/interactions",
-			"/api/profile",
-			"/api/tags",
-		],
+		availableEndpoints: ["/api/auth", "/api/posts", "/api/interactions", "/api/profile"],
 	});
 });
 
-// General 404 handler
-app.use((req, res) => {
+// General 404 handler for all other routes
+expressApplication.use((req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "Route not found",
 	});
 });
 
-// Enhanced error handler
-app.use((err, req, res, next) => {
-	console.error("Unhandled Error:", {
+// Enhanced error handling middleware
+expressApplication.use((err, req, res, next) => {
+	console.error("Unhandled application error:", {
 		message: err.message,
 		stack: err.stack,
 		url: req.url,
@@ -128,7 +122,7 @@ app.use((err, req, res, next) => {
 		timestamp: new Date().toISOString(),
 	});
 
-	// Don't expose internal errors in production
+	// Don't expose internal errors in production environment
 	if (process.env.NODE_ENV === "production") {
 		res.status(err.status || 500).json({
 			status: "error",
@@ -143,20 +137,21 @@ app.use((err, req, res, next) => {
 	}
 });
 
-// Graceful shutdown
-const gracefulShutdown = (signal) => {
-	console.log(`\n🔄 Received ${signal}, shutting down gracefully...`);
+// Graceful shutdown handlers
+const handleGracefulShutdown = (signalName) => {
+	console.log(`\n🔄 Received ${signalName}, shutting down gracefully...`);
 	process.exit(0);
 };
 
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
 
-const PORT = process.env.PORT || 3000;
+// Start server
+const SERVER_PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-	console.log(`🚀 Server running on http://localhost:${PORT}`);
-	console.log(`📊 Health check: http://localhost:${PORT}/health`);
-	console.log(`📖 API info: http://localhost:${PORT}/api`);
+expressApplication.listen(SERVER_PORT, () => {
+	console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
+	console.log(`📊 Health check: http://localhost:${SERVER_PORT}/health`);
+	console.log(`📖 API info: http://localhost:${SERVER_PORT}/api`);
 	console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
 });

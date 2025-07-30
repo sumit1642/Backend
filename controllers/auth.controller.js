@@ -1,43 +1,46 @@
 // controllers/auth.controller.js
 import {
-	registerUser,
-	loginUser,
-	refreshAccessToken,
-	logoutUser,
+	createNewUserAccount,
+	authenticateUserLogin,
+	generateNewAccessToken,
+	removeUserSession,
 } from "../services/auth.service.js";
 
-const createSecureCookieOptions = (maxAge) => ({
-	httpOnly: true,
-	secure: process.env.NODE_ENV === "production",
-	sameSite: "strict",
-	path: "/",
-	maxAge,
+// Create secure cookie configuration for different token types
+const createSecureCookieConfiguration = (maxAgeInMilliseconds) => ({
+	httpOnly: true, // Prevent client-side JavaScript access for security
+	secure: process.env.NODE_ENV === "production", // HTTPS only in production
+	sameSite: "strict", // CSRF protection
+	path: "/", // Cookie available on all routes
+	maxAge: maxAgeInMilliseconds, // Cookie expiration time
 });
 
-export const register = async (req, res) => {
+// Register new user controller
+export const registerNewUser = async (req, res) => {
 	try {
 		const { name, email, password } = req.body;
-		const result = await registerUser({ name, email, password });
+		const newUserData = await createNewUserAccount({ name, email, password });
 
 		return res.status(201).json({
 			status: "success",
 			message: "User registered successfully",
-			data: { user: result },
+			data: { user: newUserData },
 		});
-	} catch (err) {
-		console.error("Registration error:", err);
+	} catch (registrationError) {
+		console.error("User registration error:", registrationError);
 
-		if (err.message === "User already exists") {
+		// Handle specific registration errors
+		if (registrationError.message === "User already exists") {
 			return res.status(409).json({
 				status: "error",
 				message: "User already exists",
 			});
 		}
 
-		if (err.message.includes("Password")) {
+		if (registrationError.message.includes("Password")) {
 			return res.status(400).json({
 				status: "error",
-				message: err.message,
+				message: registrationError.message,
 			});
 		}
 
@@ -48,29 +51,38 @@ export const register = async (req, res) => {
 	}
 };
 
-export const login = async (req, res) => {
+// Login existing user controller
+export const loginUser = async (req, res) => {
 	try {
-		const user = req.foundUser;
+		const userRecord = req.foundUserRecord; // From validation middleware
 		const { password } = req.body;
-		const result = await loginUser(user, password);
+		const authenticationResult = await authenticateUserLogin(userRecord, password);
 
-		// Set secure cookies
-		res.cookie("accessToken", result.accessToken, createSecureCookieOptions(15 * 60 * 1000)); // 15 minutes
+		// Set secure authentication cookies
+		const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+		const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+		res.cookie(
+			"accessToken",
+			authenticationResult.accessToken,
+			createSecureCookieConfiguration(accessTokenExpiryTime),
+		);
+
 		res.cookie(
 			"refreshToken",
-			result.refreshToken,
-			createSecureCookieOptions(7 * 24 * 60 * 60 * 1000),
-		); // 7 days
+			authenticationResult.refreshToken,
+			createSecureCookieConfiguration(refreshTokenExpiryTime),
+		);
 
 		return res.status(200).json({
 			status: "success",
 			message: "Logged in successfully",
-			data: { user: result.user },
+			data: { user: authenticationResult.user },
 		});
-	} catch (err) {
-		console.error("Login error:", err);
+	} catch (loginError) {
+		console.error("User login error:", loginError);
 
-		if (err.message === "Invalid credentials") {
+		if (loginError.message === "Invalid credentials") {
 			return res.status(401).json({
 				status: "error",
 				message: "Invalid email or password",
@@ -84,36 +96,45 @@ export const login = async (req, res) => {
 	}
 };
 
-export const refresh = async (req, res) => {
+// Refresh user access token controller
+export const refreshUserToken = async (req, res) => {
 	try {
-		const refreshToken = req.cookies.refreshToken;
+		const currentRefreshToken = req.cookies.refreshToken;
 
-		if (!refreshToken) {
+		if (!currentRefreshToken) {
 			return res.status(401).json({
 				status: "error",
 				message: "Refresh token required",
 			});
 		}
 
-		const result = await refreshAccessToken(refreshToken);
+		const tokenRefreshResult = await generateNewAccessToken(currentRefreshToken);
 
-		// Set new secure cookies
-		res.cookie("accessToken", result.accessToken, createSecureCookieOptions(15 * 60 * 1000));
+		// Set new secure authentication cookies
+		const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+		const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+		res.cookie(
+			"accessToken",
+			tokenRefreshResult.accessToken,
+			createSecureCookieConfiguration(accessTokenExpiryTime),
+		);
+
 		res.cookie(
 			"refreshToken",
-			result.refreshToken,
-			createSecureCookieOptions(7 * 24 * 60 * 60 * 1000),
+			tokenRefreshResult.refreshToken,
+			createSecureCookieConfiguration(refreshTokenExpiryTime),
 		);
 
 		return res.status(200).json({
 			status: "success",
 			message: "Token refreshed successfully",
-			data: { user: result.user },
+			data: { user: tokenRefreshResult.user },
 		});
-	} catch (err) {
-		console.error("Refresh error:", err);
+	} catch (tokenRefreshError) {
+		console.error("Token refresh error:", tokenRefreshError);
 
-		// Clear cookies on error
+		// Clear authentication cookies on token refresh failure
 		res.clearCookie("accessToken", { path: "/" });
 		res.clearCookie("refreshToken", { path: "/" });
 
@@ -124,12 +145,13 @@ export const refresh = async (req, res) => {
 	}
 };
 
-export const logout = async (req, res) => {
+// Logout current user controller
+export const logoutCurrentUser = async (req, res) => {
 	try {
-		const refreshToken = req.cookies.refreshToken;
-		await logoutUser(refreshToken);
+		const currentRefreshToken = req.cookies.refreshToken;
+		await removeUserSession(currentRefreshToken);
 
-		// Clear cookies
+		// Clear authentication cookies from browser
 		res.clearCookie("accessToken", { path: "/" });
 		res.clearCookie("refreshToken", { path: "/" });
 
@@ -137,10 +159,10 @@ export const logout = async (req, res) => {
 			status: "success",
 			message: "Logged out successfully",
 		});
-	} catch (err) {
-		console.error("Logout error:", err);
+	} catch (logoutError) {
+		console.error("User logout error:", logoutError);
 
-		// Still clear cookies even if there's an error
+		// Still clear cookies even if there's a server error
 		res.clearCookie("accessToken", { path: "/" });
 		res.clearCookie("refreshToken", { path: "/" });
 

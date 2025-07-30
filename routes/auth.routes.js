@@ -1,12 +1,37 @@
 // routes/auth.routes.js
 import express from "express";
-import { login, refresh, register, logout } from "../controllers/auth.controller.js";
-import { loginValidation, registerValidation } from "../middleware/auth.middleware.js";
+import {
+	loginUser,
+	refreshUserToken,
+	registerNewUser,
+	logoutCurrentUser,
+} from "../controllers/auth.controller.js";
+import {
+	validateLoginCredentials,
+	validateRegistrationData,
+	redirectIfAuthenticated,
+} from "../middleware/auth.middleware.js";
 
-export const authRoute = express.Router();
+export const authenticationRoutes = express.Router();
 
-// Public routes
-authRoute.post("/register", registerValidation, register);
-authRoute.post("/login", loginValidation, login);
-authRoute.post("/refresh", refresh);
-authRoute.post("/logout", logout);
+// Public authentication routes with redirect protection for logged-in users
+// If user is already authenticated, they will be redirected to home page
+
+// User registration endpoint - creates new user account
+authenticationRoutes.post(
+	"/register",
+	redirectIfAuthenticated,
+	validateRegistrationData,
+	registerNewUser,
+);
+
+// User login endpoint - authenticates existing user
+authenticationRoutes.post("/login", redirectIfAuthenticated, validateLoginCredentials, loginUser);
+
+// Token refresh endpoint - generates new access token using refresh token
+// Note: No redirect middleware here as authenticated users need to refresh tokens
+authenticationRoutes.post("/refresh", refreshUserToken);
+
+// User logout endpoint - clears authentication tokens
+// Note: No redirect middleware here as authenticated users need to logout
+authenticationRoutes.post("/logout", logoutCurrentUser);
