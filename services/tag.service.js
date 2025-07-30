@@ -27,7 +27,7 @@ export const createTag = async (name) => {
 	try {
 		// Check if tag already exists
 		const existingTag = await prisma.tag.findUnique({
-			where: { name: name.toLowerCase() },
+			where: { name: name.trim().toLowerCase().replace(/\s+/g, "-") },
 		});
 
 		if (existingTag) {
@@ -36,7 +36,7 @@ export const createTag = async (name) => {
 
 		const tag = await prisma.tag.create({
 			data: {
-				name: name.toLowerCase(),
+				name: name.trim().toLowerCase().replace(/\s+/g, "-"),
 			},
 		});
 
