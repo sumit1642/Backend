@@ -1,27 +1,75 @@
 // middleware/auth.middleware.js
 import { prisma } from "../utils/prisma.js";
+import jwt from "jsonwebtoken";
 
-// Basic email validation
-const isValidEmail = (email) => {
-	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	return emailRegex.test(email);
+// Ensure JWT secret is set
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
+if (!JWT_SECRET_KEY) {
+	console.error("❌ JWT_SECRET_KEY environment variable is required");
+	process.exit(1);
+}
+
+// Basic email validation using regex pattern
+const validateEmailFormat = (emailAddress) => {
+	const emailValidationRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	return emailValidationRegex.test(emailAddress);
 };
 
-// Sanitize input to prevent XSS
-const sanitizeInput = (input) => {
-	if (typeof input !== "string") return input;
-	return input
-		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-		.replace(/<[^>]*>/g, "")
-		.trim();
+// Sanitize user input to prevent XSS attacks
+const sanitizeUserInput = (userInput) => {
+	if (typeof userInput !== "string") return userInput;
+	return userInput
+		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "") // Remove script tags
+		.replace(/<[^>]*>/g, "") // Remove all HTML tags
+		.trim(); // Remove leading/trailing whitespace
 };
 
-// REGISTER validation
-export const registerValidation = async (req, res, next) => {
+// Middleware to redirect authenticated users away from auth pages
+export const redirectIfAuthenticated = async (req, res, next) => {
+	try {
+		const userAccessToken = req.cookies?.accessToken;
+
+		// If no access token, user is not authenticated - allow access to auth pages
+		if (!userAccessToken) {
+			return next();
+		}
+
+		// Verify if the access token is valid
+		try {
+			const decodedTokenPayload = jwt.verify(userAccessToken, JWT_SECRET_KEY);
+
+			// If token is valid, user is authenticated - redirect to home page
+			return res.status(302).json({
+				status: "redirect",
+				message: "Already authenticated",
+				redirectUrl: "/",
+				data: {
+					user: {
+						id: decodedTokenPayload.userId,
+						name: decodedTokenPayload.name,
+						email: decodedTokenPayload.email,
+					},
+				},
+			});
+		} catch (tokenVerificationError) {
+			// If token is invalid/expired, clear it and allow access to auth pages
+			res.clearCookie("accessToken", { path: "/" });
+			res.clearCookie("refreshToken", { path: "/" });
+			return next();
+		}
+	} catch (unexpectedError) {
+		console.error("Redirect if authenticated middleware error:", unexpectedError);
+		// On error, allow access to auth pages (fail gracefully)
+		return next();
+	}
+};
+
+// REGISTER validation middleware
+export const validateRegistrationData = async (req, res, next) => {
 	try {
 		const { name, email, password } = req.body;
 
-		// Check required fields
+		// Validate required fields presence
 		if (!name || !name.trim()) {
 			return res.status(400).json({
 				status: "error",
@@ -43,32 +91,32 @@ export const registerValidation = async (req, res, next) => {
 			});
 		}
 
-		// Sanitize and validate name
-		const sanitizedName = sanitizeInput(name.trim());
-		if (sanitizedName.length < 2) {
+		// Sanitize and validate user name
+		const sanitizedUserName = sanitizeUserInput(name.trim());
+		if (sanitizedUserName.length < 2) {
 			return res.status(400).json({
 				status: "error",
 				message: "Name must be at least 2 characters long",
 			});
 		}
 
-		if (sanitizedName.length > 50) {
+		if (sanitizedUserName.length > 50) {
 			return res.status(400).json({
 				status: "error",
 				message: "Name cannot be longer than 50 characters",
 			});
 		}
 
-		// Validate email
-		const sanitizedEmail = email.trim().toLowerCase();
-		if (!isValidEmail(sanitizedEmail)) {
+		// Sanitize and validate email address
+		const sanitizedEmailAddress = email.trim().toLowerCase();
+		if (!validateEmailFormat(sanitizedEmailAddress)) {
 			return res.status(400).json({
 				status: "error",
 				message: "Please provide a valid email address",
 			});
 		}
 
-		// Validate password
+		// Validate password strength requirements
 		if (password.length < 6) {
 			return res.status(400).json({
 				status: "error",
@@ -83,28 +131,28 @@ export const registerValidation = async (req, res, next) => {
 			});
 		}
 
-		// Check if user already exists
-		const existingUser = await prisma.user.findUnique({
-			where: { email: sanitizedEmail },
+		// Check if user with this email already exists in database
+		const existingUserRecord = await prisma.user.findUnique({
+			where: { email: sanitizedEmailAddress },
 		});
 
-		if (existingUser) {
+		if (existingUserRecord) {
 			return res.status(409).json({
 				status: "error",
 				message: "User with this email already exists",
 			});
 		}
 
-		// Clean data for next step
+		// Prepare clean data for next middleware/controller
 		req.body = {
-			name: sanitizedName,
-			email: sanitizedEmail,
-			password: password,
+			name: sanitizedUserName,
+			email: sanitizedEmailAddress,
+			password: password, // Keep original password for bcrypt hashing
 		};
 
 		next();
-	} catch (error) {
-		console.error("Register validation error:", error);
+	} catch (registrationValidationError) {
+		console.error("Registration validation error:", registrationValidationError);
 		return res.status(500).json({
 			status: "error",
 			message: "Validation failed",
@@ -112,12 +160,12 @@ export const registerValidation = async (req, res, next) => {
 	}
 };
 
-// LOGIN validation
-export const loginValidation = async (req, res, next) => {
+// LOGIN validation middleware
+export const validateLoginCredentials = async (req, res, next) => {
 	try {
 		const { email, password } = req.body;
 
-		// Check required fields
+		// Validate required login fields
 		if (!email || !email.trim()) {
 			return res.status(400).json({
 				status: "error",
@@ -132,32 +180,34 @@ export const loginValidation = async (req, res, next) => {
 			});
 		}
 
-		// Sanitize and validate email
-		const sanitizedEmail = email.trim().toLowerCase();
-		if (!isValidEmail(sanitizedEmail)) {
+		// Sanitize and validate email format
+		const sanitizedEmailAddress = email.trim().toLowerCase();
+		if (!validateEmailFormat(sanitizedEmailAddress)) {
 			return res.status(400).json({
 				status: "error",
 				message: "Please provide a valid email address",
 			});
 		}
 
-		// Find user
-		const user = await prisma.user.findUnique({
-			where: { email: sanitizedEmail },
+		// Find user record in database
+		const userRecord = await prisma.user.findUnique({
+			where: { email: sanitizedEmailAddress },
 		});
 
-		if (!user) {
+		if (!userRecord) {
 			return res.status(401).json({
 				status: "error",
 				message: "Invalid email or password",
 			});
 		}
 
-		req.foundUser = user;
+		// Attach found user to request for next middleware/controller
+		req.foundUserRecord = userRecord;
 		req.body.password = password; // Keep original password for bcrypt comparison
+
 		next();
-	} catch (error) {
-		console.error("Login validation error:", error);
+	} catch (loginValidationError) {
+		console.error("Login validation error:", loginValidationError);
 		return res.status(500).json({
 			status: "error",
 			message: "Validation failed",

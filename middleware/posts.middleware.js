@@ -158,3 +158,42 @@ export const validateCommentData = (req, res, next) => {
 	req.body.content = sanitizedContent;
 	next();
 };
+
+// Validate tag data
+export const validateTagData = (req, res, next) => {
+	const { tagName } = req.body;
+
+	if (!tagName || !tagName.trim()) {
+		return res.status(400).json({
+			status: "error",
+			message: "Tag name is required",
+		});
+	}
+
+	const sanitizedTagName = sanitizeInput(tagName.trim()).toLowerCase();
+
+	if (sanitizedTagName.length < 2) {
+		return res.status(400).json({
+			status: "error",
+			message: "Tag name must be at least 2 characters long",
+		});
+	}
+
+	if (sanitizedTagName.length > 20) {
+		return res.status(400).json({
+			status: "error",
+			message: "Tag name cannot be longer than 20 characters",
+		});
+	}
+
+	// Check for valid tag characters (alphanumeric and hyphens)
+	if (!/^[a-z0-9-]+$/.test(sanitizedTagName)) {
+		return res.status(400).json({
+			status: "error",
+			message: "Tag name can only contain lowercase letters, numbers, and hyphens",
+		});
+	}
+
+	req.body.tagName = sanitizedTagName;
+	next();
+};

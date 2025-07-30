@@ -6,6 +6,13 @@ export const toggleLike = async (userId, postId) => {
 		// Check if post exists
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
+			include: {
+				tags: {
+					include: {
+						tag: true,
+					},
+				},
+			},
 		});
 
 		if (!post) {
@@ -37,6 +44,17 @@ export const toggleLike = async (userId, postId) => {
 						},
 					},
 				});
+
+				// Remove user liked tags for this post's tags
+				for (const postTag of post.tags) {
+					await tx.userLikedTag.deleteMany({
+						where: {
+							userId,
+							tagId: postTag.tag.id,
+						},
+					});
+				}
+
 				isLiked = false;
 				message = "Post unliked successfully";
 			} else {
@@ -47,6 +65,24 @@ export const toggleLike = async (userId, postId) => {
 						postId,
 					},
 				});
+
+				// Add user liked tags for this post's tags
+				for (const postTag of post.tags) {
+					await tx.userLikedTag.upsert({
+						where: {
+							userId_tagId: {
+								userId,
+								tagId: postTag.tag.id,
+							},
+						},
+						update: {}, // Do nothing if already exists
+						create: {
+							userId,
+							tagId: postTag.tag.id,
+						},
+					});
+				}
+
 				isLiked = true;
 				message = "Post liked successfully";
 			}
