@@ -5,6 +5,7 @@ import { authenticationRoutes } from "./routes/auth.routes.js";
 import { postRoute } from "./routes/post.routes.js";
 import { interactionRoute } from "./routes/interaction.routes.js";
 import { profileRoute } from "./routes/profile.routes.js";
+import { tagRoute } from "./routes/tag.routes.js"; 
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
@@ -12,16 +13,16 @@ const expressApplication = express();
 
 // Security headers middleware - protect against common vulnerabilities
 expressApplication.use((req, res, next) => {
-	res.setHeader("X-Content-Type-Options", "nosniff"); // Prevent MIME type sniffing
-	res.setHeader("X-Frame-Options", "DENY"); // Prevent clickjacking
-	res.setHeader("X-XSS-Protection", "1; mode=block"); // Enable XSS protection
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("X-Frame-Options", "DENY"); 
+	res.setHeader("X-XSS-Protection", "1; mode=block");
 	next();
 });
 
 // Basic middleware configuration
-expressApplication.use(express.json({ limit: "10mb" })); // Parse JSON bodies with size limit
-expressApplication.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded bodies
-expressApplication.use(cookieParser()); // Parse cookies from requests
+expressApplication.use(express.json({ limit: "10mb" })); 
+expressApplication.use(express.urlencoded({ extended: true, limit: "10mb" }));
+expressApplication.use(cookieParser()); 
 
 // CORS configuration for cross-origin requests
 const corsConfigurationOptions = {
@@ -29,7 +30,7 @@ const corsConfigurationOptions = {
 		process.env.NODE_ENV === "production"
 			? process.env.ALLOWED_ORIGINS?.split(",") || false
 			: "http://localhost:3000",
-	credentials: true, // Allow cookies to be sent
+	credentials: true, 
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
 	optionsSuccessStatus: 200,
@@ -72,10 +73,11 @@ expressApplication.get("/health", (req, res) => {
 });
 
 // API Routes configuration
-expressApplication.use("/api/auth", authenticationRoutes); // Authentication routes
-expressApplication.use("/api/posts", postRoute); // Post management routes
-expressApplication.use("/api/interactions", interactionRoute); // Like/comment routes
-expressApplication.use("/api/profile", profileRoute); // User profile routes
+expressApplication.use("/api/auth", authenticationRoutes);
+expressApplication.use("/api/posts", postRoute); 
+expressApplication.use("/api/interactions", interactionRoute);
+expressApplication.use("/api/profile", profileRoute);
+expressApplication.use("/api/tags", tagRoute);
 
 // Home route - display all published posts with optional authentication
 expressApplication.get("/", optionalAuth, getAllPostsController);
@@ -90,6 +92,7 @@ expressApplication.get("/api", (req, res) => {
 			posts: "/api/posts",
 			interactions: "/api/interactions",
 			profile: "/api/profile",
+			tags: "/api/tags", 
 		},
 		docs: "Visit /api/docs for detailed documentation",
 	});
@@ -100,7 +103,13 @@ expressApplication.use("/api", (req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "API endpoint not found",
-		availableEndpoints: ["/api/auth", "/api/posts", "/api/interactions", "/api/profile"],
+		availableEndpoints: [
+			"/api/auth",
+			"/api/posts",
+			"/api/interactions",
+			"/api/profile",
+			"/api/tags",
+		], // Added tags
 	});
 });
 
