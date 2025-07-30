@@ -5,23 +5,24 @@ import { authenticationRoutes } from "./routes/auth.routes.js";
 import { postRoute } from "./routes/post.routes.js";
 import { interactionRoute } from "./routes/interaction.routes.js";
 import { profileRoute } from "./routes/profile.routes.js";
+import { tagRoute } from "./routes/tag.routes.js"; 
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
-const expressApplication = express();
+const app = express();
 
 // Security headers middleware - protect against common vulnerabilities
-expressApplication.use((req, res, next) => {
-	res.setHeader("X-Content-Type-Options", "nosniff"); // Prevent MIME type sniffing
-	res.setHeader("X-Frame-Options", "DENY"); // Prevent clickjacking
-	res.setHeader("X-XSS-Protection", "1; mode=block"); // Enable XSS protection
+app.use((req, res, next) => {
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("X-Frame-Options", "DENY"); 
+	res.setHeader("X-XSS-Protection", "1; mode=block");
 	next();
 });
 
 // Basic middleware configuration
-expressApplication.use(express.json({ limit: "10mb" })); // Parse JSON bodies with size limit
-expressApplication.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded bodies
-expressApplication.use(cookieParser()); // Parse cookies from requests
+app.use(express.json({ limit: "10mb" })); 
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser()); 
 
 // CORS configuration for cross-origin requests
 const corsConfigurationOptions = {
@@ -29,14 +30,14 @@ const corsConfigurationOptions = {
 		process.env.NODE_ENV === "production"
 			? process.env.ALLOWED_ORIGINS?.split(",") || false
 			: "http://localhost:3000",
-	credentials: true, // Allow cookies to be sent
+	credentials: true, 
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
 	optionsSuccessStatus: 200,
 };
 
 // Apply CORS middleware manually for better control
-expressApplication.use((req, res, next) => {
+app.use((req, res, next) => {
 	const requestOrigin = req.headers.origin;
 
 	// Handle production origins
@@ -62,7 +63,7 @@ expressApplication.use((req, res, next) => {
 });
 
 // Health check endpoint - verify server status
-expressApplication.get("/health", (req, res) => {
+app.get("/health", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Server is running",
@@ -72,16 +73,17 @@ expressApplication.get("/health", (req, res) => {
 });
 
 // API Routes configuration
-expressApplication.use("/api/auth", authenticationRoutes); // Authentication routes
-expressApplication.use("/api/posts", postRoute); // Post management routes
-expressApplication.use("/api/interactions", interactionRoute); // Like/comment routes
-expressApplication.use("/api/profile", profileRoute); // User profile routes
+app.use("/api/auth", authenticationRoutes);
+app.use("/api/posts", postRoute); 
+app.use("/api/interactions", interactionRoute);
+app.use("/api/profile", profileRoute);
+app.use("/api/tags", tagRoute);
 
 // Home route - display all published posts with optional authentication
-expressApplication.get("/", optionalAuth, getAllPostsController);
+app.get("/", optionalAuth, getAllPostsController);
 
 // API Documentation endpoint
-expressApplication.get("/api", (req, res) => {
+app.get("/api", (req, res) => {
 	res.status(200).json({
 		status: "success",
 		message: "Blog API v1.0",
@@ -90,22 +92,29 @@ expressApplication.get("/api", (req, res) => {
 			posts: "/api/posts",
 			interactions: "/api/interactions",
 			profile: "/api/profile",
+			tags: "/api/tags", 
 		},
 		docs: "Visit /api/docs for detailed documentation",
 	});
 });
 
 // 404 handler specifically for API routes
-expressApplication.use("/api", (req, res) => {
+app.use("/api", (req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "API endpoint not found",
-		availableEndpoints: ["/api/auth", "/api/posts", "/api/interactions", "/api/profile"],
+		availableEndpoints: [
+			"/api/auth",
+			"/api/posts",
+			"/api/interactions",
+			"/api/profile",
+			"/api/tags",
+		], // Added tags
 	});
 });
 
 // General 404 handler for all other routes
-expressApplication.use((req, res) => {
+app.use((req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "Route not found",
@@ -113,7 +122,7 @@ expressApplication.use((req, res) => {
 });
 
 // Enhanced error handling middleware
-expressApplication.use((err, req, res, next) => {
+app.use((err, req, res, next) => {
 	console.error("Unhandled application error:", {
 		message: err.message,
 		stack: err.stack,
@@ -149,7 +158,7 @@ process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
 // Start server
 const SERVER_PORT = process.env.PORT || 3000;
 
-expressApplication.listen(SERVER_PORT, () => {
+app.listen(SERVER_PORT, () => {
 	console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
 	console.log(`📊 Health check: http://localhost:${SERVER_PORT}/health`);
 	console.log(`📖 API info: http://localhost:${SERVER_PORT}/api`);
