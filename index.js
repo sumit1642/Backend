@@ -5,6 +5,7 @@ import { authRoute } from "./routes/auth.routes.js";
 import { postRoute } from "./routes/post.routes.js";
 import { interactionRoute } from "./routes/interaction.routes.js";
 import { profileRoute } from "./routes/profile.routes.js";
+import { tagRoute } from "./routes/tag.routes.js";
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 
@@ -73,6 +74,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/posts", postRoute);
 app.use("/api/interactions", interactionRoute);
 app.use("/api/profile", profileRoute);
+app.use("/api/tags", tagRoute);
 
 // Home route - show all published posts
 app.get("/", optionalAuth, getAllPostsController);
@@ -87,6 +89,7 @@ app.get("/api", (req, res) => {
 			posts: "/api/posts",
 			interactions: "/api/interactions",
 			profile: "/api/profile",
+			tags: "/api/tags",
 		},
 		docs: "Visit /api/docs for detailed documentation",
 	});
@@ -97,7 +100,13 @@ app.use("/api", (req, res) => {
 	res.status(404).json({
 		status: "error",
 		message: "API endpoint not found",
-		availableEndpoints: ["/api/auth", "/api/posts", "/api/interactions", "/api/profile"],
+		availableEndpoints: [
+			"/api/auth",
+			"/api/posts",
+			"/api/interactions",
+			"/api/profile",
+			"/api/tags",
+		],
 	});
 });
 

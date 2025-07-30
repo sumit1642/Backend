@@ -12,6 +12,7 @@ const formatPost = (post, userId = null) => ({
 	commentsCount: post.comments?.length || 0,
 	likesCount: post.likes?.length || 0,
 	isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
+	tags: post.tags?.map((pt) => pt.tag) || [],
 });
 
 export const createPost = async ({ title, content, published, userId }) => {
@@ -50,6 +51,16 @@ export const createPost = async ({ title, content, published, userId }) => {
 				likes: {
 					select: { userId: true },
 				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+				},
 			},
 		});
 
@@ -84,6 +95,16 @@ export const getAllPosts = async ({ published, userId }) => {
 				},
 				likes: {
 					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
 				},
 			},
 		});
@@ -122,6 +143,16 @@ export const getPostById = async (postId, userId) => {
 				},
 				likes: {
 					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
 				},
 			},
 		});
@@ -188,6 +219,16 @@ export const updatePost = async (postId, userId, updateData) => {
 				},
 				likes: {
 					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
 				},
 			},
 		});
@@ -262,6 +303,16 @@ export const getUserPosts = async (targetUserId, requestingUserId) => {
 				likes: {
 					select: { userId: true },
 				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+				},
 			},
 		});
 
@@ -292,6 +343,16 @@ export const getMyPosts = async (userId) => {
 				},
 				likes: {
 					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
 				},
 			},
 		});
