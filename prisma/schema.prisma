@@ -17,8 +17,8 @@ model User {
     profile       Profile?
     refreshTokens RefreshToken[]
     comments      Comment[]
-    likes         Like[] // 👍 likes a post
-    likedTags     UserLikedTag[] // 🏷️ tags from liked posts
+    likes         Like[]
+    likedTags     UserLikedTag[]
 }
 
 model Profile {
@@ -41,7 +41,7 @@ model Post {
     id        Int       @id @default(autoincrement())
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
-    title     String    @db.VarChar(50) // ❌ Removed @unique
+    title     String    @db.VarChar(50)
     content   String?   @db.VarChar(191)
     published Boolean   @default(false)
     authorId  Int
