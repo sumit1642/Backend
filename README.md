@@ -77,28 +77,27 @@ All responses follow this format:
 **Frontend Action:** Redirect to dashboard/home page after successful registration
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Name is required" // or other validation messages
-    }
-    ```
--   **409** - Duplicate email:
-    ```json
-    {
-    	"status": "error",
-    	"message": "User with this email already exists"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Registration failed"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Name is required" // or other validation messages
+  }
+  ```
+- **409** - Duplicate email:
+  ```json
+  {
+    "status": "error",
+    "message": "User with this email already exists"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Registration failed"
+  }
+  ```
 
 ### Login Button Click
 
@@ -134,28 +133,27 @@ All responses follow this format:
 **Frontend Action:** Redirect to dashboard/home page after successful login
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Email is required" // or "Password is required", "Please provide a valid email address"
-    }
-    ```
--   **401** - Invalid credentials:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid email or password"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Login failed"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Email is required" // or "Password is required", "Please provide a valid email address"
+  }
+  ```
+- **401** - Invalid credentials:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid email or password"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Login failed"
+  }
+  ```
 
 ### Auto Token Refresh
 
@@ -187,6 +185,14 @@ All responses follow this format:
 
 **Frontend Action:** Continue with original request, update user state
 
+**Error Response (401):**
+```json
+{
+  "status": "error",
+  "message": "Token refresh failed"
+}
+```
+**Frontend Action:** Redirect to login page
 **Error Response (401):**
 
 ```json
@@ -303,6 +309,14 @@ All responses follow this format:
 **Frontend Action:** Display posts list, no redirect needed
 
 **Error Response (500):**
+```json
+{
+  "status": "error",
+  "message": "Failed to fetch posts"
+}
+```
+
+**Error Response (500):**
 
 ```json
 {
@@ -349,28 +363,27 @@ All responses follow this format:
 **Frontend Action:** Display post detail page with comments
 
 **Error Responses:**
-
--   **400** - Invalid post ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID"
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch post"
-    }
-    ```
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch post"
+  }
+  ```
 
 ### Create Post Button Click
 
@@ -408,43 +421,42 @@ All responses follow this format:
 **Frontend Action:** Redirect to post detail page or posts list
 
 **Error Responses:**
-
--   **401** - Unauthorized (no token):
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **401** - Token expired:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token expired. Please refresh your token.",
-    	"code": "TOKEN_EXPIRED"
-    }
-    ```
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Title is required" // or "Content is required"
-    }
-    ```
--   **409** - Duplicate title:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You already have a post with this title"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to create post"
-    }
-    ```
+- **401** - Unauthorized (no token):
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **401** - Token expired:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token expired. Please refresh your token.",
+    "code": "TOKEN_EXPIRED"
+  }
+  ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Title is required" // or "Content is required"
+  }
+  ```
+- **409** - Duplicate title:
+  ```json
+  {
+    "status": "error",
+    "message": "You already have a post with this title"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to create post"
+  }
+  ```
 
 ### Edit Post Button Click
 
@@ -482,49 +494,48 @@ All responses follow this format:
 **Frontend Action:** Update post in UI, optionally redirect to post detail
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID" // or "No update data provided"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not post owner:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You can only update your own posts"
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **409** - Title conflict:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You already have a post with this title"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to update post"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID" // or "No update data provided"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only update your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **409** - Title conflict:
+  ```json
+  {
+    "status": "error",
+    "message": "You already have a post with this title"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update post"
+  }
+  ```
 
 ### Delete Post Button Click
 
@@ -549,42 +560,41 @@ All responses follow this format:
 **Frontend Action:** Remove post from UI, redirect to posts list if on detail page
 
 **Error Responses:**
-
--   **400** - Invalid post ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not post owner:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You can only delete your own posts"
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to delete post"
-    }
-    ```
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only delete your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to delete post"
+  }
+  ```
 
 ### My Posts Page Load
 
@@ -612,21 +622,20 @@ All responses follow this format:
 **Frontend Action:** Display user's posts (both published and drafts)
 
 **Error Responses:**
-
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch your posts"
-    }
-    ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch your posts"
+  }
+  ```
 
 ### User Profile Posts Click
 
@@ -653,28 +662,27 @@ All responses follow this format:
 **Frontend Action:** Display user's published posts only (unless viewing own profile)
 
 **Error Responses:**
-
--   **400** - Invalid user ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid user ID"
-    }
-    ```
--   **404** - User not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "User not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch user posts"
-    }
-    ```
+- **400** - Invalid user ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid user ID"
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch user posts"
+  }
+  ```
 
 ---
 
@@ -719,28 +727,27 @@ All responses follow this format:
 **Frontend Action:** Display comments list under post
 
 **Error Responses:**
-
--   **400** - Invalid post ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID"
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch comments"
-    }
-    ```
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch comments"
+  }
+  ```
 
 ### Add Comment Button Click
 
@@ -776,35 +783,34 @@ All responses follow this format:
 **Frontend Action:** Add comment to comments list, clear comment form
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Comment content is required" // or "Invalid post ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to add comment"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment content is required" // or "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to add comment"
+  }
+  ```
 
 ### Edit Comment Button Click
 
@@ -841,42 +847,41 @@ All responses follow this format:
 **Frontend Action:** Update comment in UI, exit edit mode
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Comment content is required" // or "Invalid comment ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not comment owner:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You can only update your own comments"
-    }
-    ```
--   **404** - Comment not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Comment not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to update comment"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment content is required" // or "Invalid comment ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not comment owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only update your own comments"
+  }
+  ```
+- **404** - Comment not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update comment"
+  }
+  ```
 
 ### Delete Comment Button Click
 
@@ -901,42 +906,41 @@ All responses follow this format:
 **Frontend Action:** Remove comment from UI
 
 **Error Responses:**
-
--   **400** - Invalid comment ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid comment ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not comment owner:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You can only delete your own comments"
-    }
-    ```
--   **404** - Comment not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Comment not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to delete comment"
-    }
-    ```
+- **400** - Invalid comment ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid comment ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not comment owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only delete your own comments"
+  }
+  ```
+- **404** - Comment not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to delete comment"
+  }
+  ```
 
 ### Like/Unlike Button Click
 
@@ -969,35 +973,34 @@ All responses follow this format:
 -   No redirect needed
 
 **Error Responses:**
-
--   **400** - Invalid post ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to toggle like"
-    }
-    ```
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to toggle like"
+  }
+  ```
 
 ---
 
@@ -1041,28 +1044,27 @@ All responses follow this format:
 **Frontend Action:** Display profile information in form/view
 
 **Error Responses:**
-
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **404** - User not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "User not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch profile"
-    }
-    ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch profile"
+  }
+  ```
 
 ### Update Profile Button Click
 
@@ -1099,35 +1101,34 @@ All responses follow this format:
 **Frontend Action:** Update profile display, show success message
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "No update data provided" // or "Name must be at least 2 characters long"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **404** - User not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "User not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to update profile"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "No update data provided" // or "Name must be at least 2 characters long"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update profile"
+  }
+  ```
 
 ---
 
@@ -1168,11 +1169,10 @@ All responses follow this format:
 **Frontend Action:** Display tags list or populate dropdown
 
 **Error Response (500):**
-
 ```json
 {
-	"status": "error",
-	"message": "Failed to fetch tags"
+  "status": "error",
+  "message": "Failed to fetch tags"
 }
 ```
 
@@ -1201,28 +1201,27 @@ All responses follow this format:
 **Frontend Action:** Display filtered posts, update URL/breadcrumb
 
 **Error Responses:**
-
--   **400** - Invalid tag ID:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid tag ID"
-    }
-    ```
--   **404** - Tag not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Tag not found"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to fetch posts by tag"
-    }
-    ```
+- **400** - Invalid tag ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid tag ID"
+  }
+  ```
+- **404** - Tag not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch posts by tag"
+  }
+  ```
 
 ### Add Tag to Post Button Click
 
@@ -1262,92 +1261,86 @@ All responses follow this format:
 **Frontend Action:** Add tag to post's tag list, clear input
 
 **Error Responses:**
-
--   **400** - Validation errors:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Tag name is required" // or validation rules
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not post owner:
-    ```json
-    {
-    	"status": "error",
-    	"message": "You can only add tags to your own posts"
-    }
-    ```
--   **404** - Post not found:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Post not found"
-    }
-    ```
--   **409** - Tag already exists:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Tag already exists on this post"
-    }
-    ```
--   **500** - Server error:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Failed to add tag to post"
-    }
-    ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag name is required" // or validation rules
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only add tags to your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **409** - Tag already exists:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag already exists on this post"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to add tag to post"
+  }
+  ```
 
 ### Remove Tag from Post Click
-
 **Route:** `DELETE /api/tags/posts/:postId/:tagId`
 
-**When to Call:**
-
--   "X" button click on tag chip
--   "Remove Tag" button click
--   Tag deletion in post editor
+**When to Call:** 
+- "X" button click on tag chip
+- "Remove Tag" button click
+- Tag deletion in post editor
 
 **Authentication Required:** Yes - must be post author
 
 **Success Response (200):**
-
 ```json
 {
-	"status": "success",
-	"message": "Tag removed from post successfully"
+  "status": "success",
+  "message": "Tag removed from post successfully"
 }
 ```
 
 **Frontend Action:** Remove tag from post's tag list
 
 **Error Responses:**
-
--   **400** - Invalid IDs:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Invalid post ID" // or "Invalid tag ID"
-    }
-    ```
--   **401** - Unauthorized:
-    ```json
-    {
-    	"status": "error",
-    	"message": "Access token required. Please login."
-    }
-    ```
--   **403** - Not post owner:
-    ```json
-    {
-      "status": "error",
-      "message": "You can only remove tags from your own posts"
-    ```
+- **400** - Invalid IDs:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID" // or "Invalid tag ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only remove tags from your own posts"
