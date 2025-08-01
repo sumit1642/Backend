@@ -16,7 +16,7 @@ All responses follow this format:
   "status": "success" | "error" | "redirect",
   "message": "Human readable message",
   "data": { /* Response data */ },
-  "code": "ERROR_CODE" // Only for specific errors
+  "code": "ERROR_CODE" // Only for specific errors like TOKEN_EXPIRED
 }
 ```
 
@@ -72,9 +72,27 @@ All responses follow this format:
 **Frontend Action:** Redirect to dashboard/home page after successful registration
 
 **Error Responses:**
-- **400** - Show validation errors on form
-- **409** - Show "Email already exists" error
-- **500** - Show generic error message
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Name is required" // or other validation messages
+  }
+  ```
+- **409** - Duplicate email:
+  ```json
+  {
+    "status": "error",
+    "message": "User with this email already exists"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Registration failed"
+  }
+  ```
 
 ### Login Button Click
 **Route:** `POST /api/auth/login`
@@ -107,9 +125,27 @@ All responses follow this format:
 **Frontend Action:** Redirect to dashboard/home page after successful login
 
 **Error Responses:**
-- **400** - Show validation errors on form
-- **401** - Show "Invalid credentials" error
-- **500** - Show generic error message
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Email is required" // or "Password is required", "Please provide a valid email address"
+  }
+  ```
+- **401** - Invalid credentials:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid email or password"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Login failed"
+  }
+  ```
 
 ### Auto Token Refresh
 **Route:** `POST /api/auth/refresh`
@@ -138,7 +174,14 @@ All responses follow this format:
 
 **Frontend Action:** Continue with original request, update user state
 
-**Error Response (401):** Redirect to login page
+**Error Response (401):**
+```json
+{
+  "status": "error",
+  "message": "Token refresh failed"
+}
+```
+**Frontend Action:** Redirect to login page
 
 ### Logout Button Click
 **Route:** `POST /api/auth/logout`
@@ -236,6 +279,14 @@ All responses follow this format:
 
 **Frontend Action:** Display posts list, no redirect needed
 
+**Error Response (500):**
+```json
+{
+  "status": "error",
+  "message": "Failed to fetch posts"
+}
+```
+
 ### View Single Post Click
 **Route:** `GET /api/posts/:postId`
 
@@ -270,7 +321,28 @@ All responses follow this format:
 
 **Frontend Action:** Display post detail page with comments
 
-**Error Response (404):** Show "Post not found" page or redirect to home
+**Error Responses:**
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch post"
+  }
+  ```
 
 ### Create Post Button Click
 **Route:** `POST /api/posts`
@@ -304,9 +376,42 @@ All responses follow this format:
 **Frontend Action:** Redirect to post detail page or posts list
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **400** - Show validation errors on form
-- **409** - Show "Title already exists" error
+- **401** - Unauthorized (no token):
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **401** - Token expired:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token expired. Please refresh your token.",
+    "code": "TOKEN_EXPIRED"
+  }
+  ```
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Title is required" // or "Content is required"
+  }
+  ```
+- **409** - Duplicate title:
+  ```json
+  {
+    "status": "error",
+    "message": "You already have a post with this title"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to create post"
+  }
+  ```
 
 ### Edit Post Button Click
 **Route:** `PUT /api/posts/:postId` or `PATCH /api/posts/:postId`
@@ -340,9 +445,48 @@ All responses follow this format:
 **Frontend Action:** Update post in UI, optionally redirect to post detail
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **404** - Show "Post not found" error
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID" // or "No update data provided"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only update your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **409** - Title conflict:
+  ```json
+  {
+    "status": "error",
+    "message": "You already have a post with this title"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update post"
+  }
+  ```
 
 ### Delete Post Button Click
 **Route:** `DELETE /api/posts/:postId`
@@ -364,9 +508,41 @@ All responses follow this format:
 **Frontend Action:** Remove post from UI, redirect to posts list if on detail page
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **404** - Show "Post not found" error
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only delete your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to delete post"
+  }
+  ```
 
 ### My Posts Page Load
 **Route:** `GET /api/posts/my/posts`
@@ -390,7 +566,21 @@ All responses follow this format:
 
 **Frontend Action:** Display user's posts (both published and drafts)
 
-**Error Response (401):** Redirect to login page
+**Error Responses:**
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch your posts"
+  }
+  ```
 
 ### User Profile Posts Click
 **Route:** `GET /api/posts/user/:userId`
@@ -413,7 +603,28 @@ All responses follow this format:
 
 **Frontend Action:** Display user's published posts only (unless viewing own profile)
 
-**Error Response (404):** Show "User not found" page
+**Error Responses:**
+- **400** - Invalid user ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid user ID"
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch user posts"
+  }
+  ```
 
 ---
 
@@ -453,6 +664,29 @@ All responses follow this format:
 
 **Frontend Action:** Display comments list under post
 
+**Error Responses:**
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch comments"
+  }
+  ```
+
 ### Add Comment Button Click
 **Route:** `POST /api/interactions/posts/:postId/comments`
 
@@ -483,9 +717,34 @@ All responses follow this format:
 **Frontend Action:** Add comment to comments list, clear comment form
 
 **Error Responses:**
-- **401** - Redirect to login or show login modal
-- **400** - Show validation error on form
-- **404** - Show "Post not found" error
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment content is required" // or "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to add comment"
+  }
+  ```
 
 ### Edit Comment Button Click
 **Route:** `PUT /api/interactions/comments/:commentId` or `PATCH /api/interactions/comments/:commentId`
@@ -517,9 +776,41 @@ All responses follow this format:
 **Frontend Action:** Update comment in UI, exit edit mode
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **404** - Show "Comment not found" error
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment content is required" // or "Invalid comment ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not comment owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only update your own comments"
+  }
+  ```
+- **404** - Comment not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update comment"
+  }
+  ```
 
 ### Delete Comment Button Click
 **Route:** `DELETE /api/interactions/comments/:commentId`
@@ -541,9 +832,41 @@ All responses follow this format:
 **Frontend Action:** Remove comment from UI
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **404** - Show "Comment not found" error
+- **400** - Invalid comment ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid comment ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not comment owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only delete your own comments"
+  }
+  ```
+- **404** - Comment not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Comment not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to delete comment"
+  }
+  ```
 
 ### Like/Unlike Button Click
 **Route:** `POST /api/interactions/posts/:postId/like`
@@ -572,8 +895,34 @@ All responses follow this format:
 - No redirect needed
 
 **Error Responses:**
-- **401** - Redirect to login or show login modal
-- **404** - Show "Post not found" error
+- **400** - Invalid post ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to toggle like"
+  }
+  ```
 
 ---
 
@@ -612,7 +961,28 @@ All responses follow this format:
 
 **Frontend Action:** Display profile information in form/view
 
-**Error Response (401):** Redirect to login page
+**Error Responses:**
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch profile"
+  }
+  ```
 
 ### Update Profile Button Click
 **Route:** `PUT /api/profile` or `PATCH /api/profile`
@@ -645,8 +1015,34 @@ All responses follow this format:
 **Frontend Action:** Update profile display, show success message
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **400** - Show validation errors on form
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "No update data provided" // or "Name must be at least 2 characters long"
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **404** - User not found:
+  ```json
+  {
+    "status": "error",
+    "message": "User not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to update profile"
+  }
+  ```
 
 ---
 
@@ -682,6 +1078,14 @@ All responses follow this format:
 
 **Frontend Action:** Display tags list or populate dropdown
 
+**Error Response (500):**
+```json
+{
+  "status": "error",
+  "message": "Failed to fetch tags"
+}
+```
+
 ### Tag Click / Filter by Tag
 **Route:** `GET /api/tags/:tagId/posts`
 
@@ -703,7 +1107,28 @@ All responses follow this format:
 
 **Frontend Action:** Display filtered posts, update URL/breadcrumb
 
-**Error Response (404):** Show "Tag not found" message
+**Error Responses:**
+- **400** - Invalid tag ID:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid tag ID"
+  }
+  ```
+- **404** - Tag not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag not found"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to fetch posts by tag"
+  }
+  ```
 
 ### Add Tag to Post Button Click
 **Route:** `POST /api/tags/posts/:postId`
@@ -739,10 +1164,48 @@ All responses follow this format:
 **Frontend Action:** Add tag to post's tag list, clear input
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **400** - Show validation error
-- **409** - Show "Tag already exists on post" error
+- **400** - Validation errors:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag name is required" // or validation rules
+  }
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only add tags to your own posts"
+  }
+  ```
+- **404** - Post not found:
+  ```json
+  {
+    "status": "error",
+    "message": "Post not found"
+  }
+  ```
+- **409** - Tag already exists:
+  ```json
+  {
+    "status": "error",
+    "message": "Tag already exists on this post"
+  }
+  ```
+- **500** - Server error:
+  ```json
+  {
+    "status": "error",
+    "message": "Failed to add tag to post"
+  }
+  ```
 
 ### Remove Tag from Post Click
 **Route:** `DELETE /api/tags/posts/:postId/:tagId`
@@ -765,268 +1228,22 @@ All responses follow this format:
 **Frontend Action:** Remove tag from post's tag list
 
 **Error Responses:**
-- **401** - Redirect to login page
-- **403** - Show "Not authorized" error
-- **404** - Show "Tag not found on post" error
-
-### My Liked Tags Page Load
-**Route:** `GET /api/tags/liked`
-
-**When to Call:** 
-- "My Interests" page load
-- "Liked Tags" navigation click
-- "My Tags" section load
-
-**Authentication Required:** Yes
-
-**Success Response (200):**
-```json
-{
-  "status": "success",
-  "message": "Your liked tags fetched successfully",
-  "data": {
-    "tags": [Tag, Tag, ...]
+- **400** - Invalid IDs:
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid post ID" // or "Invalid tag ID"
   }
-}
-```
-
-**Frontend Action:** Display user's liked tags (from posts they liked)
-
-**Error Response (401):** Redirect to login page
-
----
-
-## 🌐 Additional Routes & Actions
-
-### Health Check
-**Route:** `GET /health`
-
-**When to Call:** 
-- App initialization
-- Connection testing
-- Server status monitoring
-
-**Response (200):**
-```json
-{
-  "status": "success",
-  "message": "Server is running",
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "environment": "development"
-}
-```
-
-**Frontend Action:** Update connection status indicator
-
-### API Info
-**Route:** `GET /api`
-
-**When to Call:** 
-- API discovery
-- Documentation link click
-
-**Response (200):**
-```json
-{
-  "status": "success",
-  "message": "Blog API v1.0",
-  "endpoints": {
-    "auth": "/api/auth",
-    "posts": "/api/posts",
-    "interactions": "/api/interactions",
-    "profile": "/api/profile",
-    "tags": "/api/tags"
-  },
-  "docs": "Visit /api/docs for detailed documentation"
-}
-```
-
-### Home Route
-**Route:** `GET /`
-
-**When to Call:** Home page load (alternative to `/api/posts`)
-
-**Response:** Same as `GET /api/posts` with published posts
-
----
-
-## 🚨 Error Handling & Redirects
-
-### HTTP Status Codes
-- **200** - Success (GET, PUT, PATCH, DELETE)
-- **201** - Created (POST)
-- **302** - Redirect (already authenticated)
-- **400** - Bad Request (validation errors)
-- **401** - Unauthorized (auth required/expired)
-- **403** - Forbidden (not your resource)
-- **404** - Not Found (resource doesn't exist)
-- **409** - Conflict (duplicate data)
-- **500** - Server Error
-
-### Token Expiration Handling
-When any API call returns:
-
-```json
-{
-  "status": "error",
-  "message": "Access token expired. Please refresh your token.",
-  "code": "TOKEN_EXPIRED"
-}
-```
-
-**Frontend Action:**
-1. Call `POST /api/auth/refresh`
-2. If refresh succeeds → retry original request
-3. If refresh fails → redirect to login page
-
-### Authentication Required Errors
-When unauthenticated user tries protected action:
-
-```json
-{
-  "status": "error",
-  "message": "Access token required. Please login."
-}
-```
-
-**Frontend Action:** 
-- Show login modal, OR
-- Redirect to login page with return URL
-
-### Authorization Errors
-When user tries to modify others' content:
-
-```json
-{
-  "status": "error",
-  "message": "You can only update your own posts"
-}
-```
-
-**Frontend Action:** Show error message, don't redirect
-
-### 404 Errors
-For API routes:
-```json
-{
-  "status": "error",
-  "message": "API endpoint not found",
-  "availableEndpoints": ["/api/auth", "/api/posts", "/api/interactions", "/api/profile", "/api/tags"]
-}
-```
-
-For other routes:
-```json
-{
-  "status": "error",
-  "message": "Route not found"
-}
-```
-
-**Frontend Action:** Show 404 page or redirect to home
-
----
-
-## 🔄 Frontend Route Changes Based on API Responses
-
-### When to Change Frontend Routes
-
-1. **Successful Login/Register** → Redirect to dashboard/home
-2. **Successful Logout** → Redirect to login/home  
-3. **401 Authentication Required** → Redirect to login
-4. **Already Authenticated (302)** → Redirect to home
-5. **Post Created** → Redirect to post detail or posts list
-6. **Post Deleted** → Redirect to posts list (if on detail page)
-7. **404 Post Not Found** → Redirect to home or show 404 page
-8. **404 User Not Found** → Redirect to home or show 404 page
-
-### When NOT to Change Routes
-
-1. **Like/Unlike Actions** → Update UI state only
-2. **Comment Add/Edit/Delete** → Update comments list only
-3. **Tag Add/Remove** → Update tags list only
-4. **Profile Update** → Show success message only
-5. **Load Comments/Tags** → Update relevant UI section only
-6. **Validation Errors (400)** → Show errors on current form
-7. **Authorization Errors (403)** → Show error message on current page
-
----
-
-## 🔐 Authentication Flow & Route Protection
-
-### Public Routes (No Auth Required)
-- `GET /health`
-- `GET /api`
-- `GET /`
-- `GET /api/posts` (published only)
-- `GET /api/posts/:postId`
-- `GET /api/posts/user/:userId` (published only)
-- `GET /api/interactions/posts/:postId/comments`
-- `GET /api/tags`
-- `GET /api/tags/:tagId/posts`
-
-### Protected Routes (Auth Required)
-- `GET /api/posts/my/posts`
-- `POST /api/posts`
-- `PUT/PATCH /api/posts/:postId`
-- `DELETE /api/posts/:postId`
-- `POST /api/interactions/posts/:postId/comments`
-- `PUT/PATCH /api/interactions/comments/:commentId`
-- `DELETE /api/interactions/comments/:commentId`
-- `POST /api/interactions/posts/:postId/like`
-- `GET /api/profile`
-- `PUT/PATCH /api/profile`
-- `POST /api/tags/posts/:postId`
-- `DELETE /api/tags/posts/:postId/:tagId`
-- `GET /api/tags/liked`
-
-### Auth-Blocked Routes (Redirect if Authenticated)
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-
----
-
-## 🛠️ Data Validation Rules
-
-### Posts
-- **Title:** Required, max 50 characters, unique per user
-- **Content:** Required, max 191 characters
-- **Published:** Boolean, defaults to false
-
-### Comments
-- **Content:** Required, max 500 characters, min 1 character
-
-### Tags
-- **Name:** Required, 2-20 characters, lowercase, alphanumeric + hyphens only
-
-### User Registration
-- **Name:** Required, min 2 characters, max 50 characters
-- **Email:** Required, valid email format, unique globally
-- **Password:** Required, min 6 characters, max 128 characters
-
-### Profile Updates
-- **Name:** Optional, min 2 characters if provided
-- **Bio:** Optional, any length
-
----
-
-## ⚠️ Not Implemented Features
-
-- Email verification
-- Password reset
-- File uploads
-- Real-time notifications
-- Search functionality
-- Pagination
-- User roles/admin panel
-- Post categories
-- Email notifications
-- Two-factor authentication
-- Social login
-- Post scheduling
-- Image handling
-- Rich text editor API
-- Bulk operations
-- Data export
-- User blocking
-- Report system
+  ```
+- **401** - Unauthorized:
+  ```json
+  {
+    "status": "error",
+    "message": "Access token required. Please login."
+  }
+  ```
+- **403** - Not post owner:
+  ```json
+  {
+    "status": "error",
+    "message": "You can only remove tags from your own posts"
