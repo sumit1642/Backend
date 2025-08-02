@@ -1,5 +1,5 @@
 // services/post.service.js
-import { prisma } from "../utils/prisma.js";
+import { prisma } from "../utils/prisma.js"
 
 const formatPost = (post, userId = null) => ({
 	id: post.id,
@@ -13,7 +13,7 @@ const formatPost = (post, userId = null) => ({
 	likesCount: post.likes?.length || 0,
 	isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
 	tags: post.tags?.map((pt) => pt.tag) || [],
-});
+})
 
 export const createPost = async ({ title, content, published, userId }) => {
 	try {
@@ -23,10 +23,10 @@ export const createPost = async ({ title, content, published, userId }) => {
 				title,
 				authorId: userId,
 			},
-		});
+		})
 
 		if (existingPost) {
-			throw new Error("Title already exists");
+			throw new Error("Title already exists")
 		}
 
 		// Create post
@@ -62,21 +62,21 @@ export const createPost = async ({ title, content, published, userId }) => {
 					},
 				},
 			},
-		});
+		})
 
-		return formatPost(post, userId);
+		return formatPost(post, userId)
 	} catch (error) {
-		console.error("Create post error:", error);
-		throw error;
+		console.error("Create post error:", error)
+		throw error
 	}
-};
+}
 
 export const getAllPosts = async ({ published, userId }) => {
 	try {
-		const whereClause = {};
+		const whereClause = {}
 
 		if (published !== undefined) {
-			whereClause.published = published;
+			whereClause.published = published
 		}
 
 		const posts = await prisma.post.findMany({
@@ -107,14 +107,14 @@ export const getAllPosts = async ({ published, userId }) => {
 					},
 				},
 			},
-		});
+		})
 
-		return posts.map((post) => formatPost(post, userId));
+		return posts.map((post) => formatPost(post, userId))
 	} catch (error) {
-		console.error("Get all posts error:", error);
-		throw error;
+		console.error("Get all posts error:", error)
+		throw error
 	}
-};
+}
 
 export const getPostById = async (postId, userId) => {
 	try {
@@ -155,36 +155,36 @@ export const getPostById = async (postId, userId) => {
 					},
 				},
 			},
-		});
+		})
 
 		if (!post) {
-			throw new Error("Post not found");
+			throw new Error("Post not found")
 		}
 
 		// Return detailed post with comments
 		return {
 			...formatPost(post, userId),
 			comments: post.comments,
-		};
+		}
 	} catch (error) {
-		console.error("Get post by ID error:", error);
-		throw error;
+		console.error("Get post by ID error:", error)
+		throw error
 	}
-};
+}
 
 export const updatePost = async (postId, userId, updateData) => {
 	try {
 		// Check if post exists and user owns it
 		const existingPost = await prisma.post.findUnique({
 			where: { id: postId },
-		});
+		})
 
 		if (!existingPost) {
-			throw new Error("Post not found");
+			throw new Error("Post not found")
 		}
 
 		if (existingPost.authorId !== userId) {
-			throw new Error("Unauthorized");
+			throw new Error("Unauthorized")
 		}
 
 		// Check for duplicate title if title is being updated
@@ -195,10 +195,10 @@ export const updatePost = async (postId, userId, updateData) => {
 					authorId: userId,
 					NOT: { id: postId },
 				},
-			});
+			})
 
 			if (duplicatePost) {
-				throw new Error("Title already exists");
+				throw new Error("Title already exists")
 			}
 		}
 
@@ -231,39 +231,51 @@ export const updatePost = async (postId, userId, updateData) => {
 					},
 				},
 			},
-		});
+		})
 
-		return formatPost(post, userId);
+		return formatPost(post, userId)
 	} catch (error) {
-		console.error("Update post error:", error);
-		throw error;
+		console.error("Update post error:", error)
+		throw error
 	}
-};
+}
 
 export const deletePost = async (postId, userId) => {
 	try {
-		// Check if post exists and user owns it
-		const post = await prisma.post.findUnique({
-			where: { id: postId },
-		});
+		// FIXED: Use transaction to ensure data consistency during deletion
+		const result = await prisma.$transaction(async (transactionClient) => {
+			// Check if post exists and user owns it
+			const post = await transactionClient.post.findUnique({
+				where: { id: postId },
+				include: {
+					tags: true,
+					likes: true,
+					comments: true,
+				},
+			})
 
-		if (!post) {
-			throw new Error("Post not found");
-		}
+			if (!post) {
+				throw new Error("Post not found")
+			}
 
-		if (post.authorId !== userId) {
-			throw new Error("Unauthorized");
-		}
+			if (post.authorId !== userId) {
+				throw new Error("Unauthorized")
+			}
 
-		// Delete post (cascade will handle related records)
-		await prisma.post.delete({
-			where: { id: postId },
-		});
+			// Delete post (cascade will handle related records, but we're being explicit)
+			await transactionClient.post.delete({
+				where: { id: postId },
+			})
+
+			return { deletedPost: post }
+		})
+
+		return result
 	} catch (error) {
-		console.error("Delete post error:", error);
-		throw error;
+		console.error("Delete post error:", error)
+		throw error
 	}
-};
+}
 
 export const getUserPosts = async (targetUserId, requestingUserId) => {
 	try {
@@ -271,19 +283,19 @@ export const getUserPosts = async (targetUserId, requestingUserId) => {
 		const targetUser = await prisma.user.findUnique({
 			where: { id: targetUserId },
 			select: { id: true },
-		});
+		})
 
 		if (!targetUser) {
-			throw new Error("User not found");
+			throw new Error("User not found")
 		}
 
 		const whereClause = {
 			authorId: targetUserId,
-		};
+		}
 
 		// If requesting user is not the post author, only show published posts
 		if (requestingUserId !== targetUserId) {
-			whereClause.published = true;
+			whereClause.published = true
 		}
 
 		const posts = await prisma.post.findMany({
@@ -314,14 +326,14 @@ export const getUserPosts = async (targetUserId, requestingUserId) => {
 					},
 				},
 			},
-		});
+		})
 
-		return posts.map((post) => formatPost(post, requestingUserId));
+		return posts.map((post) => formatPost(post, requestingUserId))
 	} catch (error) {
-		console.error("Get user posts error:", error);
-		throw error;
+		console.error("Get user posts error:", error)
+		throw error
 	}
-};
+}
 
 export const getMyPosts = async (userId) => {
 	try {
@@ -355,11 +367,11 @@ export const getMyPosts = async (userId) => {
 					},
 				},
 			},
-		});
+		})
 
-		return posts.map((post) => formatPost(post, userId));
+		return posts.map((post) => formatPost(post, userId))
 	} catch (error) {
-		console.error("Get my posts error:", error);
-		throw error;
+		console.error("Get my posts error:", error)
+		throw error
 	}
-};
+}
