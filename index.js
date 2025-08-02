@@ -8,6 +8,7 @@ import { profileRoute } from "./routes/profile.routes.js"
 import { tagRoute } from "./routes/tag.routes.js"
 import { getAllPostsController } from "./controllers/post.controller.js"
 import { optionalAuth } from "./middleware/posts.middleware.js"
+import { prisma } from "./utils/prisma.js"
 
 const app = express()
 
@@ -146,10 +147,18 @@ app.use((err, req, res, next) => {
 	}
 })
 
-// Graceful shutdown handlers
-const handleGracefulShutdown = (signalName) => {
+// FIXED: Graceful shutdown handlers with proper database cleanup
+const handleGracefulShutdown = async (signalName) => {
 	console.log(`\n🔄 Received ${signalName}, shutting down gracefully...`)
-	process.exit(0)
+	try {
+		// Close database connection properly before exiting
+		await prisma.$disconnect()
+		console.log("📅 Database connection closed successfully")
+		process.exit(0)
+	} catch (shutdownError) {
+		console.error("❌ Error during graceful shutdown:", shutdownError)
+		process.exit(1)
+	}
 }
 
 process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"))
