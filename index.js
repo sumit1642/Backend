@@ -84,35 +84,37 @@ app.use("/api/tags", tagRoute)
 app.get("/", optionalAuth, getAllPostsController)
 
 // API Documentation endpoint
-app.get("/api", (req, res) => {
-	res.status(200).json({
-		status: "success",
-		message: "Blog API v1.0",
-		endpoints: {
-			auth: "/api/auth",
-			posts: "/api/posts",
-			interactions: "/api/interactions",
-			profile: "/api/profile",
-			tags: "/api/tags",
-		},
-		docs: "Visit /api/docs for detailed documentation",
-	})
-})
+if (process.env.NODE_ENV == "development") {
+	app.get("/api", (req, res) => {
+		res.status(200).json({
+			status: "success",
+			message: "Blog API v1.0",
+			endpoints: {
+				auth: "/api/auth",
+				posts: "/api/posts",
+				interactions: "/api/interactions",
+				profile: "/api/profile",
+				tags: "/api/tags",
+			},
+			docs: "Visit /api/docs for detailed documentation",
+		});
+	});
+	// 404 handler specifically for API routes
+	app.use("/api", (req, res) => {
+		res.status(404).json({
+			status: "error",
+			message: "API endpoint not found",
+			availableEndpoints: [
+				"/api/auth",
+				"/api/posts",
+				"/api/interactions",
+				"/api/profile",
+				"/api/tags",
+			],
+		});
+	});
+}
 
-// 404 handler specifically for API routes
-app.use("/api", (req, res) => {
-	res.status(404).json({
-		status: "error",
-		message: "API endpoint not found",
-		availableEndpoints: [
-			"/api/auth",
-			"/api/posts",
-			"/api/interactions",
-			"/api/profile",
-			"/api/tags",
-		],
-	})
-})
 
 // General 404 handler for all other routes
 app.use((req, res) => {
