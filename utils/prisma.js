@@ -1,10 +1,7 @@
 // utils/prisma.js
 import { PrismaClient } from "@prisma/client";
 
-export const prisma = new PrismaClient({
-	errorFormat: "minimal",
-	log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-});
+export const prisma = new PrismaClient();
 
 // Handle connection errors
 prisma
