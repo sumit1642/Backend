@@ -1,14 +1,14 @@
 // services/auth.service.js
-import bcrypt from "bcryptjs"
-import { prisma } from "../utils/prisma.js"
-import jwt from "jsonwebtoken"
-import crypto from "crypto"
+import bcrypt from "bcryptjs";
+import { prisma } from "../utils/prisma.js";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 // Ensure JWT secret key is properly configured
-const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 if (!JWT_SECRET_KEY) {
-	console.error("❌ JWT_SECRET_KEY environment variable is required")
-	process.exit(1)
+	console.error("❌ JWT_SECRET_KEY environment variable is required");
+	process.exit(1);
 }
 
 // Create new user account service function
@@ -17,19 +17,19 @@ export const createNewUserAccount = async ({ name, email, password }) => {
 		// Double-check if user already exists (redundant safety check)
 		const existingUserRecord = await prisma.user.findUnique({
 			where: { email },
-		})
+		});
 
 		if (existingUserRecord) {
-			throw new Error("User already exists")
+			throw new Error("User already exists");
 		}
 
 		// Validate password strength requirements
 		if (password.length < 6) {
-			throw new Error("Password must be at least 6 characters long")
+			throw new Error("Password must be at least 6 characters long");
 		}
 
 		// Hash password with strong salt rounds for security
-		const hashedUserPassword = await bcrypt.hash(password, 12)
+		const hashedUserPassword = await bcrypt.hash(password, 12);
 
 		// Create new user with associated profile in database transaction
 		const newUserRecord = await prisma.user.create({
@@ -49,22 +49,22 @@ export const createNewUserAccount = async ({ name, email, password }) => {
 				email: true,
 				// Exclude sensitive data like password from response
 			},
-		})
+		});
 
-		return newUserRecord
+		return newUserRecord;
 	} catch (userRegistrationError) {
-		console.error("User registration service error:", userRegistrationError)
-		throw userRegistrationError
+		console.error("User registration service error:", userRegistrationError);
+		throw userRegistrationError;
 	}
-}
+};
 
 // Authenticate user login service function
 export const authenticateUserLogin = async (userRecord, providedPassword) => {
 	try {
 		// Verify password against stored hash
-		const isPasswordValid = await bcrypt.compare(providedPassword, userRecord.password)
+		const isPasswordValid = await bcrypt.compare(providedPassword, userRecord.password);
 		if (!isPasswordValid) {
-			throw new Error("Invalid credentials")
+			throw new Error("Invalid credentials");
 		}
 
 		// Clean up expired refresh tokens for this user before creating new ones
@@ -75,24 +75,24 @@ export const authenticateUserLogin = async (userRecord, providedPassword) => {
 					lt: new Date(), // Less than current time = expired
 				},
 			},
-		})
+		});
 
 		// Create JWT access token with user information
 		const accessTokenPayload = {
 			userId: userRecord.id,
 			email: userRecord.email,
 			name: userRecord.name,
-		}
+		};
 
 		const newAccessToken = jwt.sign(
 			accessTokenPayload,
 			JWT_SECRET_KEY,
 			{ expiresIn: "15m" }, // Short-lived for security
-		)
+		);
 
 		// Generate secure refresh token using crypto
-		const refreshTokenValue = crypto.randomBytes(40).toString("hex")
-		const refreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+		const refreshTokenValue = crypto.randomBytes(40).toString("hex");
+		const refreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
 		// Store refresh token in database
 		await prisma.refreshToken.create({
@@ -101,7 +101,7 @@ export const authenticateUserLogin = async (userRecord, providedPassword) => {
 				userId: userRecord.id,
 				expiresAt: refreshTokenExpiryDate,
 			},
-		})
+		});
 
 		// Return authentication result with tokens and user data
 		return {
@@ -112,18 +112,18 @@ export const authenticateUserLogin = async (userRecord, providedPassword) => {
 				name: userRecord.name,
 				email: userRecord.email,
 			},
-		}
+		};
 	} catch (userLoginError) {
-		console.error("User login service error:", userLoginError)
-		throw userLoginError
+		console.error("User login service error:", userLoginError);
+		throw userLoginError;
 	}
-}
+};
 
 // Generate new access token using refresh token service function
 export const generateNewAccessToken = async (currentRefreshToken) => {
 	try {
 		if (!currentRefreshToken) {
-			throw new Error("Refresh token is required")
+			throw new Error("Refresh token is required");
 		}
 
 		// Find and validate refresh token in database
@@ -132,10 +132,10 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 			include: {
 				user: true, // Include user data for token generation
 			},
-		})
+		});
 
 		if (!refreshTokenRecord) {
-			throw new Error("Invalid refresh token")
+			throw new Error("Invalid refresh token");
 		}
 
 		// Check if refresh token has expired
@@ -143,13 +143,13 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 			// Clean up expired token from database
 			await prisma.refreshToken.delete({
 				where: { token: currentRefreshToken },
-			})
-			throw new Error("Refresh token expired")
+			});
+			throw new Error("Refresh token expired");
 		}
 
 		// Verify user still exists
 		if (!refreshTokenRecord.user) {
-			throw new Error("User not found")
+			throw new Error("User not found");
 		}
 
 		// Create new access token with updated user information
@@ -157,15 +157,15 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 			userId: refreshTokenRecord.user.id,
 			email: refreshTokenRecord.user.email,
 			name: refreshTokenRecord.user.name,
-		}
+		};
 
 		const newAccessToken = jwt.sign(newAccessTokenPayload, JWT_SECRET_KEY, {
 			expiresIn: "15m",
-		})
+		});
 
 		// Generate new refresh token for rotation security
-		const newRefreshTokenValue = crypto.randomBytes(40).toString("hex")
-		const newRefreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+		const newRefreshTokenValue = crypto.randomBytes(40).toString("hex");
+		const newRefreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
 		// FIXED: Use atomic transaction with proper error handling for token rotation
 		const tokenRotationResult = await prisma.$transaction(async (databaseTransaction) => {
@@ -176,12 +176,12 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 					userId: refreshTokenRecord.user.id,
 					expiresAt: newRefreshTokenExpiryDate,
 				},
-			})
+			});
 
 			// Only delete the old token after new one is successfully created
 			await databaseTransaction.refreshToken.delete({
 				where: { token: currentRefreshToken },
-			})
+			});
 
 			// Return new authentication data
 			return {
@@ -192,15 +192,15 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 					name: refreshTokenRecord.user.name,
 					email: refreshTokenRecord.user.email,
 				},
-			}
-		})
+			};
+		});
 
-		return tokenRotationResult
+		return tokenRotationResult;
 	} catch (tokenRefreshError) {
-		console.error("Token refresh service error:", tokenRefreshError)
-		throw tokenRefreshError
+		console.error("Token refresh service error:", tokenRefreshError);
+		throw tokenRefreshError;
 	}
-}
+};
 
 // Remove user session (logout) service function
 export const removeUserSession = async (currentRefreshToken) => {
@@ -209,13 +209,13 @@ export const removeUserSession = async (currentRefreshToken) => {
 			// Attempt to delete refresh token from database
 			await prisma.refreshToken.delete({
 				where: { token: currentRefreshToken },
-			})
+			});
 		}
 	} catch (sessionRemovalError) {
 		// Token might not exist in database, but continue with logout process
-		console.log("Refresh token not found during logout:", sessionRemovalError.message)
+		console.log("Refresh token not found during logout:", sessionRemovalError.message);
 	}
-}
+};
 
 // Logout user from all devices service function
 export const logoutUserFromAllDevices = async (userId) => {
@@ -223,12 +223,12 @@ export const logoutUserFromAllDevices = async (userId) => {
 		// Remove all refresh tokens for this user across all devices
 		await prisma.refreshToken.deleteMany({
 			where: { userId },
-		})
+		});
 	} catch (allDevicesLogoutError) {
-		console.error("Logout from all devices service error:", allDevicesLogoutError)
-		throw allDevicesLogoutError
+		console.error("Logout from all devices service error:", allDevicesLogoutError);
+		throw allDevicesLogoutError;
 	}
-}
+};
 
 // Additional utility function: Clean up expired tokens (can be used in cron jobs)
 export const cleanupExpiredRefreshTokens = async () => {
@@ -239,15 +239,15 @@ export const cleanupExpiredRefreshTokens = async () => {
 					lt: new Date(), // Delete all tokens that expired before now
 				},
 			},
-		})
+		});
 
-		console.log(`🧹 Cleaned up ${deletedTokensCount.count} expired refresh tokens`)
-		return deletedTokensCount.count
+		console.log(`🧹 Cleaned up ${deletedTokensCount.count} expired refresh tokens`);
+		return deletedTokensCount.count;
 	} catch (cleanupError) {
-		console.error("Token cleanup service error:", cleanupError)
-		throw cleanupError
+		console.error("Token cleanup service error:", cleanupError);
+		throw cleanupError;
 	}
-}
+};
 
 // Additional utility function: Get user session info
 export const getUserSessionInformation = async (userId) => {
@@ -259,7 +259,7 @@ export const getUserSessionInformation = async (userId) => {
 					gt: new Date(), // Count only non-expired tokens
 				},
 			},
-		})
+		});
 
 		const userRecord = await prisma.user.findUnique({
 			where: { id: userId },
@@ -268,14 +268,14 @@ export const getUserSessionInformation = async (userId) => {
 				name: true,
 				email: true,
 			},
-		})
+		});
 
 		return {
 			user: userRecord,
 			activeSessions: userSessionsCount,
-		}
+		};
 	} catch (sessionInfoError) {
-		console.error("Get user session info error:", sessionInfoError)
-		throw sessionInfoError
+		console.error("Get user session info error:", sessionInfoError);
+		throw sessionInfoError;
 	}
-}
+};

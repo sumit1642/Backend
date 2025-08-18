@@ -1,10 +1,10 @@
 // services/tag.service.js
-import { prisma } from "../utils/prisma.js"
+import { prisma } from "../utils/prisma.js";
 
 // FIXED: Centralized tag name transformation function to ensure consistency
 const transformTagNameForStorage = (tagName) => {
-	return tagName.trim().toLowerCase().replace(/\s+/g, "-")
-}
+	return tagName.trim().toLowerCase().replace(/\s+/g, "-");
+};
 
 export const getAllTags = async () => {
 	try {
@@ -15,63 +15,63 @@ export const getAllTags = async () => {
 					select: { postId: true },
 				},
 			},
-		})
+		});
 
 		return tags.map((tag) => ({
 			id: tag.id,
 			name: tag.name,
 			postsCount: tag.posts.length,
-		}))
+		}));
 	} catch (error) {
-		console.error("Get all tags error:", error)
-		throw error
+		console.error("Get all tags error:", error);
+		throw error;
 	}
-}
+};
 
 export const createTag = async (name) => {
 	try {
 		// FIXED: Use centralized transformation function to ensure consistency
-		const transformedTagName = transformTagNameForStorage(name)
+		const transformedTagName = transformTagNameForStorage(name);
 
 		// Check if tag already exists
 		const existingTag = await prisma.tag.findUnique({
 			where: { name: transformedTagName },
-		})
+		});
 
 		if (existingTag) {
-			return existingTag
+			return existingTag;
 		}
 
 		const tag = await prisma.tag.create({
 			data: {
 				name: transformedTagName,
 			},
-		})
+		});
 
-		return tag
+		return tag;
 	} catch (error) {
-		console.error("Create tag error:", error)
-		throw error
+		console.error("Create tag error:", error);
+		throw error;
 	}
-}
+};
 
 export const addTagToPost = async (postId, tagName, userId) => {
 	try {
 		// Check if post exists and user owns it
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
-		})
+		});
 
 		if (!post) {
-			throw new Error("Post not found")
+			throw new Error("Post not found");
 		}
 
 		if (post.authorId !== userId) {
-			throw new Error("Unauthorized")
+			throw new Error("Unauthorized");
 		}
 
 		// Create or get tag
-		const tag = await createTag(tagName)
+		const tag = await createTag(tagName);
 
 		// Check if post already has this tag
 		const existingPostTag = await prisma.postTag.findUnique({
@@ -81,10 +81,10 @@ export const addTagToPost = async (postId, tagName, userId) => {
 					tagId: tag.id,
 				},
 			},
-		})
+		});
 
 		if (existingPostTag) {
-			throw new Error("Tag already exists on this post")
+			throw new Error("Tag already exists on this post");
 		}
 
 		// Add tag to post
@@ -93,28 +93,28 @@ export const addTagToPost = async (postId, tagName, userId) => {
 				postId,
 				tagId: tag.id,
 			},
-		})
+		});
 
-		return tag
+		return tag;
 	} catch (error) {
-		console.error("Add tag to post error:", error)
-		throw error
+		console.error("Add tag to post error:", error);
+		throw error;
 	}
-}
+};
 
 export const removeTagFromPost = async (postId, tagId, userId) => {
 	try {
 		// Check if post exists and user owns it
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
-		})
+		});
 
 		if (!post) {
-			throw new Error("Post not found")
+			throw new Error("Post not found");
 		}
 
 		if (post.authorId !== userId) {
-			throw new Error("Unauthorized")
+			throw new Error("Unauthorized");
 		}
 
 		// Check if post has this tag
@@ -125,10 +125,10 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 					tagId,
 				},
 			},
-		})
+		});
 
 		if (!postTag) {
-			throw new Error("Tag not found on this post")
+			throw new Error("Tag not found on this post");
 		}
 
 		// Remove tag from post
@@ -139,22 +139,22 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 					tagId,
 				},
 			},
-		})
+		});
 	} catch (error) {
-		console.error("Remove tag from post error:", error)
-		throw error
+		console.error("Remove tag from post error:", error);
+		throw error;
 	}
-}
+};
 
 export const getPostsByTag = async (tagId, userId) => {
 	try {
 		// Check if tag exists
 		const tag = await prisma.tag.findUnique({
 			where: { id: tagId },
-		})
+		});
 
 		if (!tag) {
-			throw new Error("Tag not found")
+			throw new Error("Tag not found");
 		}
 
 		// Get posts with this tag
@@ -193,7 +193,7 @@ export const getPostsByTag = async (tagId, userId) => {
 					},
 				},
 			},
-		})
+		});
 
 		return posts.map((post) => ({
 			id: post.id,
@@ -207,12 +207,12 @@ export const getPostsByTag = async (tagId, userId) => {
 			likesCount: post.likes.length,
 			isLikedByUser: userId ? post.likes.some((like) => like.userId === userId) : false,
 			tags: post.tags.map((pt) => pt.tag),
-		}))
+		}));
 	} catch (error) {
-		console.error("Get posts by tag error:", error)
-		throw error
+		console.error("Get posts by tag error:", error);
+		throw error;
 	}
-}
+};
 
 export const getUserLikedTags = async (userId) => {
 	try {
@@ -232,15 +232,15 @@ export const getUserLikedTags = async (userId) => {
 					name: "asc",
 				},
 			},
-		})
+		});
 
 		return likedTags.map((likedTag) => ({
 			id: likedTag.tag.id,
 			name: likedTag.tag.name,
 			postsCount: likedTag.tag.posts.length,
-		}))
+		}));
 	} catch (error) {
-		console.error("Get user liked tags error:", error)
-		throw error
+		console.error("Get user liked tags error:", error);
+		throw error;
 	}
-}
+};
