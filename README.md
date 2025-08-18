@@ -1777,3 +1777,261 @@ const healthCheck = async () => {
 🔒 = Requires Authentication
 
 **Note**: This API uses HTTP-only cookies for authentication. Always include `credentials: 'include'` in your fetch requests to ensure proper authentication handling.
+---
+
+## Additional Error Responses
+
+### Authentication Error Codes
+
+All authentication endpoints may return additional error scenarios:
+
+#### Token Refresh Advanced Errors
+
+**Database Transaction Failure:**
+```json
+{
+  "status": "error",
+  "message": "Token refresh failed"
+}
+```
+
+**User Account Deleted During Session:**
+```json
+{
+  "status": "error", 
+  "message": "Token refresh failed"
+}
+```
+
+---
+
+## Enhanced Query Parameters
+
+### GET `/api/posts` - Advanced Filtering
+
+**Additional Query Parameter Behavior:**
+- When `published` parameter is omitted entirely: defaults to `"true"`
+- When `published=""` (empty string): treated as `"true"`
+- Case insensitive: `"True"`, `"TRUE"`, `"false"`, `"FALSE"` all work
+
+---
+
+## Tag Name Transformation Rules
+
+### POST `/api/tags/posts/:postId` - Complete Transformation Logic
+
+**Tag Name Processing:**
+```javascript
+// Transformation pipeline
+"Node JS Example" → "node-js-example"
+"  React Hooks  " → "react-hooks"
+"NEXT.js" → "next.js"
+"Vue3" → "vue3"
+```
+
+**Validation Regex:** `/^[a-z0-9-]+$/`
+
+**Additional Validation Errors:**
+```json
+{
+  "status": "error",
+  "message": "Tag name can only contain lowercase letters, numbers, and hyphens"
+}
+```
+
+---
+
+## Database Cascade Behaviors
+
+### DELETE `/api/posts/:postId` - Detailed Cascade Effects
+
+**Automatic Deletions (in order):**
+1. All `Comment` records where `postId` matches
+2. All `Like` records where `postId` matches  
+3. All `PostTag` relationships where `postId` matches
+4. Smart cleanup of `UserLikedTag` records (only if no other liked posts have those tags)
+5. Post record itself
+
+**Transaction Rollback:** If any step fails, entire deletion is reversed.
+
+---
+
+## Middleware Validation Details
+
+### Profile Update - Enhanced Name Validation
+
+**Name Processing Logic:**
+```javascript
+// Empty/null handling
+"" → Error: "Name must be at least 2 characters long"
+null → Error: "Name must be at least 2 characters long"
+"   " → Error: "Name must be at least 2 characters long" 
+"A" → Error: "Name must be at least 2 characters long"
+"Ab" → Valid: "Ab"
+```
+
+---
+
+## Comment Validation Extended
+
+### POST/PUT/PATCH Comment Endpoints - Character Limits
+
+**Content Validation:**
+- **Minimum:** 1 character after trimming and HTML removal
+- **Maximum:** 500 characters after trimming and HTML removal
+- **HTML Stripping:** All HTML tags removed before validation
+- **XSS Protection:** Script tags specifically targeted and removed
+
+**Example Transformations:**
+```javascript
+"<script>alert('xss')</script>Hello" → "Hello"
+"<b>Bold text</b>" → "Bold text"
+"   Valid comment   " → "Valid comment"
+```
+
+---
+
+## Advanced Authentication Behaviors
+
+### Redirect Logic for Auth Routes
+
+**POST `/api/auth/register` and `/api/auth/login`:**
+
+If user already has valid access token:
+```json
+{
+  "status": "redirect",
+  "message": "Already authenticated", 
+  "redirectUrl": "/",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com"
+    }
+  }
+}
+```
+
+**Status Code:** 302
+
+**Behavior:** Middleware checks access token validity before allowing registration/login.
+
+---
+
+## Post Content Constraints
+
+### Content Field Limitations
+
+**Database Constraints:**
+- **Title:** VARCHAR(50) - enforced at database level
+- **Content:** VARCHAR(191) - enforced at database level  
+- **Unique Constraint:** `(authorId, title)` - prevents duplicate titles per user
+
+**Validation Sequence:**
+1. Required field check
+2. HTML sanitization  
+3. Length validation
+4. Database uniqueness check (for titles)
+
+---
+
+## Like System Smart Tag Management
+
+### POST `/api/interactions/posts/:postId/like` - Tag Logic Details
+
+**When Liking a Post:**
+```javascript
+// Adds user liked tags for ALL tags on the post
+post.tags.forEach(tag => {
+  UserLikedTag.upsert({userId, tagId: tag.id})
+})
+```
+
+**When Unliking a Post:**
+```javascript
+// Only removes tags NOT present in other liked posts
+const otherLikedPostTags = getUserOtherLikedPostTags(userId, excludePostId)
+post.tags.forEach(tag => {
+  if (!otherLikedPostTags.includes(tag.id)) {
+    UserLikedTag.delete({userId, tagId: tag.id})
+  }
+})
+```
+
+**Transaction Safety:** All like/unlike operations use database transactions.
+
+---
+
+## Error Handler Differences by Environment
+
+### Development vs Production Error Responses
+
+**Development Mode Error:**
+```json
+{
+  "status": "error",
+  "message": "Detailed error message",
+  "stack": "Error stack trace here..."
+}
+```
+
+**Production Mode Error:**
+```json
+{
+  "status": "error", 
+  "message": "Internal server error"
+}
+```
+
+**Stack Traces:** Only included in development environment.
+
+---
+
+## Cookie Configuration Details
+
+### Authentication Cookie Settings
+
+**Development:**
+```javascript
+{
+  httpOnly: true,
+  secure: false,        // HTTP allowed
+  sameSite: "strict", 
+  path: "/",
+  maxAge: 900000        // 15 minutes for access token
+}
+```
+
+**Production:**
+```javascript
+{
+  httpOnly: true,
+  secure: true,         // HTTPS required
+  sameSite: "strict",
+  path: "/", 
+  maxAge: 900000
+}
+```
+
+---
+
+## Graceful Shutdown Behavior
+
+### Server Termination Process
+
+**Shutdown Sequence (on SIGTERM/SIGINT):**
+1. Log shutdown message
+2. Call `prisma.$disconnect()`
+3. Log successful database closure
+4. `process.exit(0)`
+
+**Error During Shutdown:**
+1. Log shutdown error
+2. `process.exit(1)`
+
+**Console Output:**
+```
+🔄 Received SIGTERM, shutting down gracefully...
+📅 Database connection closed successfully
+```
