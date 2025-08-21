@@ -76,7 +76,7 @@ interactionRoute.post(
 	},
 );
 
-// Update comment route (always use debouncing to prevent edit spam)
+// Update comment route with conditional debouncing
 interactionRoute.put(
 	"/comments/:commentId",
 	commentInteractionRateLimit,
@@ -85,8 +85,17 @@ interactionRoute.put(
 	(req, res, next) => {
 		req.body.userId = req.user.userId;
 
-		// Always debounce comment updates to prevent spam editing
-		return debouncedUpdateCommentInteraction(req, res, next);
+		// Check if user is rapidly editing comments
+		const isRapidEditing = isUserMakingRapidInteractions(req);
+		const forceDebounce = req.headers["x-force-debounce"] === "true";
+
+		if (isRapidEditing || forceDebounce) {
+			// Use debouncing for rapid comment editing
+			return debouncedUpdateCommentInteraction(req, res, next);
+		} else {
+			// Process immediately for single edits
+			return updateCommentController(req, res);
+		}
 	},
 );
 
@@ -97,7 +106,16 @@ interactionRoute.patch(
 	validateCommentData,
 	(req, res, next) => {
 		req.body.userId = req.user.userId;
-		return debouncedUpdateCommentInteraction(req, res, next);
+
+		// Check if user is rapidly editing comments
+		const isRapidEditing = isUserMakingRapidInteractions(req);
+		const forceDebounce = req.headers["x-force-debounce"] === "true";
+
+		if (isRapidEditing || forceDebounce) {
+			return debouncedUpdateCommentInteraction(req, res, next);
+		} else {
+			return updateCommentController(req, res);
+		}
 	},
 );
 
