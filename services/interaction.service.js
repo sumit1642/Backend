@@ -1,10 +1,10 @@
-// services/interaction.service.js
+// services/interaction.service.js (Updated)
 import { prisma } from "../utils/prisma.js";
 
 export const toggleLike = async (userId, postId) => {
 	try {
-		// Check if post exists
-		const post = await prisma.post.findUnique({
+		// Check if post exists with its tags
+		const existingPost = await prisma.post.findUnique({
 			where: { id: postId },
 			include: {
 				tags: {
@@ -15,14 +15,14 @@ export const toggleLike = async (userId, postId) => {
 			},
 		});
 
-		if (!post) {
+		if (!existingPost) {
 			throw new Error("Post not found");
 		}
 
-		// Use transaction to ensure data consistency
-		const result = await prisma.$transaction(async (transactionClient) => {
+		// Use database transaction to ensure data consistency
+		const toggleLikeResult = await prisma.$transaction(async (databaseTransaction) => {
 			// Check if user already liked this post
-			const existingLike = await transactionClient.like.findUnique({
+			const existingLikeRecord = await databaseTransaction.like.findUnique({
 				where: {
 					userId_postId: {
 						userId,
@@ -31,12 +31,12 @@ export const toggleLike = async (userId, postId) => {
 				},
 			});
 
-			let isLiked;
-			let message;
+			let isLikedByUser;
+			let responseMessage;
 
-			if (existingLike) {
-				// Unlike the post
-				await transactionClient.like.delete({
+			if (existingLikeRecord) {
+				// User wants to unlike the post
+				await databaseTransaction.like.delete({
 					where: {
 						userId_postId: {
 							userId,
@@ -45,9 +45,9 @@ export const toggleLike = async (userId, postId) => {
 					},
 				});
 
-				// FIXED: Only remove user liked tags that are ONLY from this specific post
+				// Only remove user liked tags that are ONLY from this specific post
 				// First, get all other posts this user has liked
-				const userOtherLikedPosts = await transactionClient.like.findMany({
+				const userOtherLikedPosts = await databaseTransaction.like.findMany({
 					where: {
 						userId,
 						postId: {
@@ -76,9 +76,9 @@ export const toggleLike = async (userId, postId) => {
 				});
 
 				// Only remove liked tags that are NOT in other liked posts
-				for (const postTag of post.tags) {
+				for (const postTag of existingPost.tags) {
 					if (!tagIdsFromOtherLikedPosts.has(postTag.tag.id)) {
-						await transactionClient.userLikedTag.deleteMany({
+						await databaseTransaction.userLikedTag.deleteMany({
 							where: {
 								userId,
 								tagId: postTag.tag.id,
@@ -87,11 +87,11 @@ export const toggleLike = async (userId, postId) => {
 					}
 				}
 
-				isLiked = false;
-				message = "Post unliked successfully";
+				isLikedByUser = false;
+				responseMessage = "Post unliked successfully";
 			} else {
-				// Like the post
-				await transactionClient.like.create({
+				// User wants to like the post
+				await databaseTransaction.like.create({
 					data: {
 						userId,
 						postId,
@@ -99,8 +99,8 @@ export const toggleLike = async (userId, postId) => {
 				});
 
 				// Add user liked tags for this post's tags
-				for (const postTag of post.tags) {
-					await transactionClient.userLikedTag.upsert({
+				for (const postTag of existingPost.tags) {
+					await databaseTransaction.userLikedTag.upsert({
 						where: {
 							userId_tagId: {
 								userId,
@@ -115,40 +115,53 @@ export const toggleLike = async (userId, postId) => {
 					});
 				}
 
-				isLiked = true;
-				message = "Post liked successfully";
+				isLikedByUser = true;
+				responseMessage = "Post liked successfully";
 			}
 
-			// Get updated like count
-			const likeCount = await transactionClient.like.count({
+			// Get updated total like count for this post
+			const updatedLikeCount = await databaseTransaction.like.count({
 				where: { postId },
 			});
 
-			return { isLiked, likeCount, message };
+			return {
+				isLiked: isLikedByUser,
+				likeCount: updatedLikeCount,
+				message: responseMessage,
+			};
 		});
 
-		return result;
-	} catch (error) {
-		console.error("Toggle like error:", error);
-		throw error;
+		return toggleLikeResult;
+	} catch (serviceError) {
+		console.error("Toggle like service error:", serviceError);
+		throw serviceError;
 	}
 };
 
-export const addComment = async (userId, postId, content) => {
+export const addComment = async (userId, postId, commentContent) => {
 	try {
 		// Check if post exists
-		const post = await prisma.post.findUnique({
+		const existingPost = await prisma.post.findUnique({
 			where: { id: postId },
 		});
 
-		if (!post) {
+		if (!existingPost) {
 			throw new Error("Post not found");
 		}
 
-		// Create comment
-		const comment = await prisma.comment.create({
+		// Additional validation for comment content
+		if (!commentContent || commentContent.length < 1) {
+			throw new Error("Comment content cannot be empty");
+		}
+
+		if (commentContent.length > 500) {
+			throw new Error("Comment content cannot exceed 500 characters");
+		}
+
+		// Create new comment
+		const newComment = await prisma.comment.create({
 			data: {
-				content,
+				content: commentContent,
 				postId,
 				authorId: userId,
 			},
@@ -162,26 +175,26 @@ export const addComment = async (userId, postId, content) => {
 			},
 		});
 
-		return comment;
-	} catch (error) {
-		console.error("Add comment error:", error);
-		throw error;
+		return newComment;
+	} catch (serviceError) {
+		console.error("Add comment service error:", serviceError);
+		throw serviceError;
 	}
 };
 
 export const getComments = async (postId) => {
 	try {
 		// Check if post exists
-		const post = await prisma.post.findUnique({
+		const existingPost = await prisma.post.findUnique({
 			where: { id: postId },
 		});
 
-		if (!post) {
+		if (!existingPost) {
 			throw new Error("Post not found");
 		}
 
-		// Get comments
-		const comments = await prisma.comment.findMany({
+		// Get all comments for this post
+		const postComments = await prisma.comment.findMany({
 			where: { postId },
 			orderBy: { createdAt: "desc" },
 			include: {
@@ -194,41 +207,16 @@ export const getComments = async (postId) => {
 			},
 		});
 
-		return comments;
-	} catch (error) {
-		console.error("Get comments error:", error);
-		throw error;
+		return postComments;
+	} catch (serviceError) {
+		console.error("Get comments service error:", serviceError);
+		throw serviceError;
 	}
 };
 
 export const deleteComment = async (userId, commentId) => {
 	try {
-		// Check if comment exists and user owns it
-		const comment = await prisma.comment.findUnique({
-			where: { id: commentId },
-		});
-
-		if (!comment) {
-			throw new Error("Comment not found");
-		}
-
-		if (comment.authorId !== userId) {
-			throw new Error("Unauthorized");
-		}
-
-		// Delete comment
-		await prisma.comment.delete({
-			where: { id: commentId },
-		});
-	} catch (error) {
-		console.error("Delete comment error:", error);
-		throw error;
-	}
-};
-
-export const updateComment = async (userId, commentId, content) => {
-	try {
-		// Check if comment exists and user owns it
+		// Check if comment exists and get its details
 		const existingComment = await prisma.comment.findUnique({
 			where: { id: commentId },
 		});
@@ -237,14 +225,52 @@ export const updateComment = async (userId, commentId, content) => {
 			throw new Error("Comment not found");
 		}
 
+		// Verify that user owns this comment
 		if (existingComment.authorId !== userId) {
 			throw new Error("Unauthorized");
 		}
 
-		// Update comment
-		const comment = await prisma.comment.update({
+		// Delete the comment
+		await prisma.comment.delete({
 			where: { id: commentId },
-			data: { content },
+		});
+
+		return { message: "Comment deleted successfully" };
+	} catch (serviceError) {
+		console.error("Delete comment service error:", serviceError);
+		throw serviceError;
+	}
+};
+
+export const updateComment = async (userId, commentId, updatedContent) => {
+	try {
+		// Check if comment exists and get its details
+		const existingComment = await prisma.comment.findUnique({
+			where: { id: commentId },
+		});
+
+		if (!existingComment) {
+			throw new Error("Comment not found");
+		}
+
+		// Verify that user owns this comment
+		if (existingComment.authorId !== userId) {
+			throw new Error("Unauthorized");
+		}
+
+		// Additional validation for updated content
+		if (!updatedContent || updatedContent.length < 1) {
+			throw new Error("Updated comment content cannot be empty");
+		}
+
+		if (updatedContent.length > 500) {
+			throw new Error("Updated comment content cannot exceed 500 characters");
+		}
+
+		// Update the comment with new content
+		const updatedComment = await prisma.comment.update({
+			where: { id: commentId },
+			data: { content: updatedContent },
 			include: {
 				author: {
 					select: {
@@ -255,9 +281,9 @@ export const updateComment = async (userId, commentId, content) => {
 			},
 		});
 
-		return comment;
-	} catch (error) {
-		console.error("Update comment error:", error);
-		throw error;
+		return updatedComment;
+	} catch (serviceError) {
+		console.error("Update comment service error:", serviceError);
+		throw serviceError;
 	}
 };

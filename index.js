@@ -1,4 +1,4 @@
-// index.js
+// index.js (Updated)
 import express from "express";
 import cookieParser from "cookie-parser";
 import { authenticationRoutes } from "./routes/auth.routes.js";
@@ -9,6 +9,7 @@ import { tagRoute } from "./routes/tag.routes.js";
 import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 import { prisma } from "./utils/prisma.js";
+import { processAllRemainingInteractions } from "./middleware/interaction.debounce.middleware.js";
 
 const app = express();
 
@@ -104,13 +105,7 @@ if (process.env.NODE_ENV == "development") {
 		res.status(404).json({
 			status: "error",
 			message: "API endpoint not found",
-			availableEndpoints: [
-				"/api/auth",
-				"/api/posts",
-				"/api/interactions",
-				"/api/profile",
-				"/api/tags",
-			],
+			availableEndpoints: ["/api/auth", "/api/posts", "/api/interactions", "/api/profile", "/api/tags"],
 		});
 	});
 }
@@ -148,10 +143,14 @@ app.use((err, req, res, next) => {
 	}
 });
 
-// FIXED: Graceful shutdown handlers with proper database cleanup
+// UPDATED: Enhanced graceful shutdown with interaction processing
 const handleGracefulShutdown = async (signalName) => {
 	console.log(`\n🔄 Received ${signalName}, shutting down gracefully...`);
 	try {
+		// Process any remaining queued interactions before shutdown
+		await processAllRemainingInteractions();
+		console.log("✅ Processed all remaining user interactions");
+
 		// Close database connection properly before exiting
 		await prisma.$disconnect();
 		console.log("📅 Database connection closed successfully");

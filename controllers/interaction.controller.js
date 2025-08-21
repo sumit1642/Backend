@@ -1,12 +1,7 @@
-// controllers/interaction.controller.js
-import {
-	toggleLike,
-	addComment,
-	getComments,
-	deleteComment,
-	updateComment,
-} from "../services/interaction.service.js";
+// controllers/interaction.controller.js (Updated)
+import { toggleLike, addComment, getComments, deleteComment, updateComment } from "../services/interaction.service.js";
 
+// Helper function to validate post ID
 const validatePostId = (postId) => {
 	const parsedId = parseInt(postId);
 	if (isNaN(parsedId) || parsedId <= 0) {
@@ -15,6 +10,7 @@ const validatePostId = (postId) => {
 	return parsedId;
 };
 
+// Helper function to validate comment ID
 const validateCommentId = (commentId) => {
 	const parsedId = parseInt(commentId);
 	if (isNaN(parsedId) || parsedId <= 0) {
@@ -35,20 +31,20 @@ export const toggleLikeController = async (req, res) => {
 			});
 		}
 
-		const result = await toggleLike(userId, postId);
+		const likeResult = await toggleLike(userId, postId);
 
 		return res.status(200).json({
 			status: "success",
-			message: result.message,
+			message: likeResult.message,
 			data: {
-				isLiked: result.isLiked,
-				likeCount: result.likeCount,
+				isLiked: likeResult.isLiked,
+				likeCount: likeResult.likeCount,
 			},
 		});
-	} catch (err) {
-		console.error("Toggle Like Controller Error:", err);
+	} catch (controllerError) {
+		console.error("Toggle Like Controller Error:", controllerError);
 
-		if (err.message === "Post not found") {
+		if (controllerError.message === "Post not found") {
 			return res.status(404).json({
 				status: "error",
 				message: "Post not found",
@@ -82,17 +78,27 @@ export const addCommentController = async (req, res) => {
 			});
 		}
 
-		const comment = await addComment(userId, postId, content.trim());
+		const trimmedCommentContent = content.trim();
+
+		// Additional validation for comment length
+		if (trimmedCommentContent.length > 500) {
+			return res.status(400).json({
+				status: "error",
+				message: "Comment cannot be longer than 500 characters",
+			});
+		}
+
+		const newComment = await addComment(userId, postId, trimmedCommentContent);
 
 		return res.status(201).json({
 			status: "success",
 			message: "Comment added successfully",
-			data: { comment },
+			data: { comment: newComment },
 		});
-	} catch (err) {
-		console.error("Add Comment Controller Error:", err);
+	} catch (controllerError) {
+		console.error("Add Comment Controller Error:", controllerError);
 
-		if (err.message === "Post not found") {
+		if (controllerError.message === "Post not found") {
 			return res.status(404).json({
 				status: "error",
 				message: "Post not found",
@@ -117,17 +123,20 @@ export const getCommentsController = async (req, res) => {
 			});
 		}
 
-		const comments = await getComments(postId);
+		const postComments = await getComments(postId);
 
 		return res.status(200).json({
 			status: "success",
 			message: "Comments fetched successfully",
-			data: { comments },
+			data: {
+				comments: postComments,
+				commentsCount: postComments.length,
+			},
 		});
-	} catch (err) {
-		console.error("Get Comments Controller Error:", err);
+	} catch (controllerError) {
+		console.error("Get Comments Controller Error:", controllerError);
 
-		if (err.message === "Post not found") {
+		if (controllerError.message === "Post not found") {
 			return res.status(404).json({
 				status: "error",
 				message: "Post not found",
@@ -159,17 +168,17 @@ export const deleteCommentController = async (req, res) => {
 			status: "success",
 			message: "Comment deleted successfully",
 		});
-	} catch (err) {
-		console.error("Delete Comment Controller Error:", err);
+	} catch (controllerError) {
+		console.error("Delete Comment Controller Error:", controllerError);
 
-		if (err.message === "Comment not found") {
+		if (controllerError.message === "Comment not found") {
 			return res.status(404).json({
 				status: "error",
 				message: "Comment not found",
 			});
 		}
 
-		if (err.message === "Unauthorized") {
+		if (controllerError.message === "Unauthorized") {
 			return res.status(403).json({
 				status: "error",
 				message: "You can only delete your own comments",
@@ -203,24 +212,34 @@ export const updateCommentController = async (req, res) => {
 			});
 		}
 
-		const comment = await updateComment(userId, commentId, content.trim());
+		const trimmedUpdatedContent = content.trim();
+
+		// Additional validation for updated comment length
+		if (trimmedUpdatedContent.length > 500) {
+			return res.status(400).json({
+				status: "error",
+				message: "Comment cannot be longer than 500 characters",
+			});
+		}
+
+		const updatedComment = await updateComment(userId, commentId, trimmedUpdatedContent);
 
 		return res.status(200).json({
 			status: "success",
 			message: "Comment updated successfully",
-			data: { comment },
+			data: { comment: updatedComment },
 		});
-	} catch (err) {
-		console.error("Update Comment Controller Error:", err);
+	} catch (controllerError) {
+		console.error("Update Comment Controller Error:", controllerError);
 
-		if (err.message === "Comment not found") {
+		if (controllerError.message === "Comment not found") {
 			return res.status(404).json({
 				status: "error",
 				message: "Comment not found",
 			});
 		}
 
-		if (err.message === "Unauthorized") {
+		if (controllerError.message === "Unauthorized") {
 			return res.status(403).json({
 				status: "error",
 				message: "You can only update your own comments",
