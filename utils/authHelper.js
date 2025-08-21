@@ -140,7 +140,7 @@ class AuthenticationManager {
 		}
 	}
 
-	// Register user
+	// FIXED: Register user with auto-login
 	async register(name, email, password) {
 		try {
 			const response = await fetch(`${this.baseApiUrl}/auth/register`, {
@@ -155,7 +155,24 @@ class AuthenticationManager {
 			const data = await response.json();
 
 			if (response.ok) {
-				return { success: true, data };
+				// Check if user was auto-logged in
+				if (data.data.autoLogin) {
+					this.notifyAuthListeners(true, data.data.user);
+					return {
+						success: true,
+						data,
+						autoLogin: true,
+						message: "Registration successful! You are now logged in.",
+					};
+				} else {
+					// Registration successful but not auto-logged in
+					return {
+						success: true,
+						data,
+						autoLogin: false,
+						message: "Registration successful! Please log in.",
+					};
+				}
 			} else {
 				return { success: false, error: data.message };
 			}

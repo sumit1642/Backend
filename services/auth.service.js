@@ -11,8 +11,8 @@ if (!JWT_SECRET_KEY) {
 	process.exit(1);
 }
 
-// Create new user account service function
-export const createNewUserAccount = async ({ name, email, password }) => {
+// FIXED: Create new user account service function with optional auto-login
+export const createNewUserAccount = async ({ name, email, password }, autoLogin = false) => {
 	try {
 		// Double-check if user already exists (redundant safety check)
 		const existingUserRecord = await prisma.user.findUnique({
@@ -47,11 +47,61 @@ export const createNewUserAccount = async ({ name, email, password }) => {
 				id: true,
 				name: true,
 				email: true,
-				// Exclude sensitive data like password from response
+				password: autoLogin, // Include password only if auto-login is requested
 			},
 		});
 
-		return newUserRecord;
+		// If auto-login is requested, generate tokens
+		if (autoLogin) {
+			// Clean up expired refresh tokens for this user before creating new ones
+			await prisma.refreshToken.deleteMany({
+				where: {
+					userId: newUserRecord.id,
+					expiresAt: {
+						lt: new Date(),
+					},
+				},
+			});
+
+			// Create JWT access token
+			const accessTokenPayload = {
+				userId: newUserRecord.id,
+				email: newUserRecord.email,
+				name: newUserRecord.name,
+			};
+
+			const newAccessToken = jwt.sign(accessTokenPayload, JWT_SECRET_KEY, { expiresIn: "15m" });
+
+			// Generate secure refresh token
+			const refreshTokenValue = crypto.randomBytes(40).toString("hex");
+			const refreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+			// Store refresh token in database
+			await prisma.refreshToken.create({
+				data: {
+					token: refreshTokenValue,
+					userId: newUserRecord.id,
+					expiresAt: refreshTokenExpiryDate,
+				},
+			});
+
+			return {
+				user: {
+					id: newUserRecord.id,
+					name: newUserRecord.name,
+					email: newUserRecord.email,
+				},
+				accessToken: newAccessToken,
+				refreshToken: refreshTokenValue,
+			};
+		}
+
+		// Return user data without tokens
+		return {
+			id: newUserRecord.id,
+			name: newUserRecord.name,
+			email: newUserRecord.email,
+		};
 	} catch (userRegistrationError) {
 		console.error("User registration service error:", userRegistrationError);
 		throw userRegistrationError;

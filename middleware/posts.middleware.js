@@ -1,5 +1,6 @@
 // middleware/posts.middleware.js (FIXED)
 import jwt from "jsonwebtoken";
+import { prisma } from "../utils/prisma.js";
 
 // Ensure JWT secret is set
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -17,39 +18,44 @@ const sanitizeInput = (input) => {
 		.trim();
 };
 
-// FIXED: Function to refresh access token automatically
-const attemptTokenRefresh = async (req, res) => {
-	const refreshToken = req.cookies?.refreshToken;
-
+// FIXED: Function to refresh access token automatically (simplified internal call)
+const attemptTokenRefresh = async (refreshToken) => {
 	if (!refreshToken) {
-		return null; // No refresh token available
+		return null;
 	}
 
 	try {
-		// Make internal call to refresh token
-		const response = await fetch(`${req.protocol}://${req.get("host")}/api/auth/refresh`, {
-			method: "POST",
-			headers: {
-				Cookie: `refreshToken=${refreshToken}`,
-				"Content-Type": "application/json",
-			},
+		// Check if refresh token exists in database
+		const refreshTokenRecord = await prisma.refreshToken.findUnique({
+			where: { token: refreshToken },
+			include: { user: true },
 		});
 
-		if (response.ok) {
-			const data = await response.json();
-
-			// Extract new tokens from set-cookie headers
-			const setCookieHeaders = response.headers.get("set-cookie");
-			if (setCookieHeaders) {
-				// Forward the new cookies to the current response
-				res.setHeader("Set-Cookie", setCookieHeaders);
-				return data.data.user; // Return user data
-			}
+		if (!refreshTokenRecord || refreshTokenRecord.expiresAt < new Date()) {
+			return null;
 		}
 
-		return null;
+		// Generate new access token
+		const newAccessTokenPayload = {
+			userId: refreshTokenRecord.user.id,
+			email: refreshTokenRecord.user.email,
+			name: refreshTokenRecord.user.name,
+		};
+
+		const newAccessToken = jwt.sign(newAccessTokenPayload, JWT_SECRET, {
+			expiresIn: "15m",
+		});
+
+		return {
+			accessToken: newAccessToken,
+			user: {
+				userId: refreshTokenRecord.user.id,
+				email: refreshTokenRecord.user.email,
+				name: refreshTokenRecord.user.name,
+			},
+		};
 	} catch (error) {
-		console.log("Auto token refresh failed:", error.message);
+		console.log("Internal token refresh failed:", error.message);
 		return null;
 	}
 };
@@ -61,9 +67,21 @@ export const requireAuth = async (req, res, next) => {
 
 		if (!accessToken) {
 			// Try to refresh token automatically
-			const refreshedUser = await attemptTokenRefresh(req, res);
-			if (refreshedUser) {
-				req.user = refreshedUser;
+			const refreshToken = req.cookies?.refreshToken;
+			const refreshResult = await attemptTokenRefresh(refreshToken);
+
+			if (refreshResult) {
+				// Set new access token cookie
+				const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+				res.cookie("accessToken", refreshResult.accessToken, {
+					httpOnly: true,
+					secure: process.env.NODE_ENV === "production",
+					sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+					path: "/",
+					maxAge: accessTokenExpiryTime,
+				});
+
+				req.user = refreshResult.user;
 				return next();
 			}
 
@@ -84,9 +102,21 @@ export const requireAuth = async (req, res, next) => {
 
 			// If token is expired, try to refresh automatically
 			if (tokenError.name === "TokenExpiredError") {
-				const refreshedUser = await attemptTokenRefresh(req, res);
-				if (refreshedUser) {
-					req.user = refreshedUser;
+				const refreshToken = req.cookies?.refreshToken;
+				const refreshResult = await attemptTokenRefresh(refreshToken);
+
+				if (refreshResult) {
+					// Set new access token cookie
+					const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+					res.cookie("accessToken", refreshResult.accessToken, {
+						httpOnly: true,
+						secure: process.env.NODE_ENV === "production",
+						sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+						path: "/",
+						maxAge: accessTokenExpiryTime,
+					});
+
+					req.user = refreshResult.user;
 					return next();
 				}
 
@@ -132,9 +162,21 @@ export const optionalAuth = async (req, res, next) => {
 			} catch (tokenError) {
 				// If token is expired, try silent refresh
 				if (tokenError.name === "TokenExpiredError") {
-					const refreshedUser = await attemptTokenRefresh(req, res);
-					if (refreshedUser) {
-						req.user = refreshedUser;
+					const refreshToken = req.cookies?.refreshToken;
+					const refreshResult = await attemptTokenRefresh(refreshToken);
+
+					if (refreshResult) {
+						// Set new access token cookie
+						const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+						res.cookie("accessToken", refreshResult.accessToken, {
+							httpOnly: true,
+							secure: process.env.NODE_ENV === "production",
+							sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+							path: "/",
+							maxAge: accessTokenExpiryTime,
+						});
+
+						req.user = refreshResult.user;
 					}
 				}
 				// For other token errors, just continue without user data

@@ -15,16 +15,50 @@ const createSecureCookieConfiguration = (maxAgeInMilliseconds) => ({
 	maxAge: maxAgeInMilliseconds, // Cookie expiration time
 });
 
-// Register new user controller
+// FIXED: Register new user controller with auto-login
 export const registerNewUser = async (req, res) => {
 	try {
 		const { name, email, password } = req.body;
-		const newUserData = await createNewUserAccount({ name, email, password });
 
+		// Create user with auto-login enabled
+		const registrationResult = await createNewUserAccount({ name, email, password }, true);
+
+		// Set authentication cookies if tokens were generated
+		if (registrationResult.accessToken && registrationResult.refreshToken) {
+			const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+			const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+			// Clear any existing cookies first
+			res.clearCookie("accessToken", { path: "/" });
+			res.clearCookie("refreshToken", { path: "/" });
+
+			res.cookie(
+				"accessToken",
+				registrationResult.accessToken,
+				createSecureCookieConfiguration(accessTokenExpiryTime),
+			);
+
+			res.cookie(
+				"refreshToken",
+				registrationResult.refreshToken,
+				createSecureCookieConfiguration(refreshTokenExpiryTime),
+			);
+
+			return res.status(201).json({
+				status: "success",
+				message: "User registered and logged in successfully",
+				data: {
+					user: registrationResult.user,
+					autoLogin: true,
+				},
+			});
+		}
+
+		// Fallback if auto-login failed
 		return res.status(201).json({
 			status: "success",
 			message: "User registered successfully",
-			data: { user: newUserData },
+			data: { user: registrationResult },
 		});
 	} catch (registrationError) {
 		console.error("User registration error:", registrationError);
