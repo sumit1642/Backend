@@ -1,4 +1,4 @@
-// middleware/posts.middleware.js
+// middleware/posts.middleware.js (FIXED)
 import jwt from "jsonwebtoken";
 
 // Ensure JWT secret is set
@@ -17,48 +17,110 @@ const sanitizeInput = (input) => {
 		.trim();
 };
 
-// Required authentication - fails if no token
+// FIXED: Function to refresh access token automatically
+const attemptTokenRefresh = async (req, res) => {
+	const refreshToken = req.cookies?.refreshToken;
+
+	if (!refreshToken) {
+		return null; // No refresh token available
+	}
+
+	try {
+		// Make internal call to refresh token
+		const response = await fetch(`${req.protocol}://${req.get("host")}/api/auth/refresh`, {
+			method: "POST",
+			headers: {
+				Cookie: `refreshToken=${refreshToken}`,
+				"Content-Type": "application/json",
+			},
+		});
+
+		if (response.ok) {
+			const data = await response.json();
+
+			// Extract new tokens from set-cookie headers
+			const setCookieHeaders = response.headers.get("set-cookie");
+			if (setCookieHeaders) {
+				// Forward the new cookies to the current response
+				res.setHeader("Set-Cookie", setCookieHeaders);
+				return data.data.user; // Return user data
+			}
+		}
+
+		return null;
+	} catch (error) {
+		console.log("Auto token refresh failed:", error.message);
+		return null;
+	}
+};
+
+// FIXED: Required authentication - with automatic token refresh
 export const requireAuth = async (req, res, next) => {
 	try {
 		const accessToken = req.cookies?.accessToken;
 
 		if (!accessToken) {
+			// Try to refresh token automatically
+			const refreshedUser = await attemptTokenRefresh(req, res);
+			if (refreshedUser) {
+				req.user = refreshedUser;
+				return next();
+			}
+
 			return res.status(401).json({
 				status: "error",
 				message: "Access token required. Please login.",
+				code: "NO_ACCESS_TOKEN",
 			});
 		}
 
-		// Verify token
-		const decoded = jwt.verify(accessToken, JWT_SECRET);
-		req.user = decoded;
-		next();
+		try {
+			// Verify token
+			const decoded = jwt.verify(accessToken, JWT_SECRET);
+			req.user = decoded;
+			next();
+		} catch (tokenError) {
+			console.log("JWT verification error:", tokenError.message);
+
+			// If token is expired, try to refresh automatically
+			if (tokenError.name === "TokenExpiredError") {
+				const refreshedUser = await attemptTokenRefresh(req, res);
+				if (refreshedUser) {
+					req.user = refreshedUser;
+					return next();
+				}
+
+				return res.status(401).json({
+					status: "error",
+					message: "Access token expired. Please refresh your token.",
+					code: "TOKEN_EXPIRED",
+				});
+			}
+
+			if (tokenError.name === "JsonWebTokenError") {
+				return res.status(401).json({
+					status: "error",
+					message: "Invalid access token.",
+					code: "INVALID_TOKEN",
+				});
+			}
+
+			return res.status(401).json({
+				status: "error",
+				message: "Authentication failed.",
+				code: "AUTH_FAILED",
+			});
+		}
 	} catch (err) {
-		console.error("JWT verification error:", err);
-
-		if (err.name === "TokenExpiredError") {
-			return res.status(401).json({
-				status: "error",
-				message: "Access token expired. Please refresh your token.",
-				code: "TOKEN_EXPIRED",
-			});
-		}
-
-		if (err.name === "JsonWebTokenError") {
-			return res.status(401).json({
-				status: "error",
-				message: "Invalid access token.",
-			});
-		}
-
-		return res.status(401).json({
+		console.error("Auth middleware error:", err);
+		return res.status(500).json({
 			status: "error",
-			message: "Authentication failed.",
+			message: "Authentication system error.",
 		});
 	}
 };
 
-// Optional authentication - continues even if no token
+// FIXED: Optional authentication - with silent token refresh
 export const optionalAuth = async (req, res, next) => {
 	try {
 		const accessToken = req.cookies?.accessToken;
@@ -67,13 +129,19 @@ export const optionalAuth = async (req, res, next) => {
 			try {
 				const decoded = jwt.verify(accessToken, JWT_SECRET);
 				req.user = decoded;
-			} catch (err) {
-				// Don't fail, just continue without user data
-				console.log("Optional auth failed:", err.message);
+			} catch (tokenError) {
+				// If token is expired, try silent refresh
+				if (tokenError.name === "TokenExpiredError") {
+					const refreshedUser = await attemptTokenRefresh(req, res);
+					if (refreshedUser) {
+						req.user = refreshedUser;
+					}
+				}
+				// For other token errors, just continue without user data
 			}
 		}
 
-		// Continue regardless of token presence
+		// Continue regardless of token presence or refresh result
 		next();
 	} catch (err) {
 		// Don't fail, just continue without user data

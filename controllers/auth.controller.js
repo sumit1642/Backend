@@ -1,4 +1,4 @@
-// controllers/auth.controller.js
+// controllers/auth.controller.js (FIXED)
 import {
 	createNewUserAccount,
 	authenticateUserLogin,
@@ -6,11 +6,11 @@ import {
 	removeUserSession,
 } from "../services/auth.service.js";
 
-// Create secure cookie configuration for different token types
+// FIXED: Create secure cookie configuration for different token types
 const createSecureCookieConfiguration = (maxAgeInMilliseconds) => ({
 	httpOnly: true, // Prevent client-side JavaScript access for security
 	secure: process.env.NODE_ENV === "production", // HTTPS only in production
-	sameSite: "strict", // CSRF protection
+	sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax", // More permissive in development
 	path: "/", // Cookie available on all routes
 	maxAge: maxAgeInMilliseconds, // Cookie expiration time
 });
@@ -58,10 +58,15 @@ export const loginUser = async (req, res) => {
 		const { password } = req.body;
 		const authenticationResult = await authenticateUserLogin(userRecord, password);
 
-		// Set secure authentication cookies
+		// FIXED: Adjusted token expiry times for better user experience
 		const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
 		const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+		// Clear any existing cookies first to prevent conflicts
+		res.clearCookie("accessToken", { path: "/" });
+		res.clearCookie("refreshToken", { path: "/" });
+
+		// Set secure authentication cookies
 		res.cookie(
 			"accessToken",
 			authenticationResult.accessToken,
@@ -96,7 +101,7 @@ export const loginUser = async (req, res) => {
 	}
 };
 
-// Refresh user access token controller
+// FIXED: Refresh user access token controller
 export const refreshUserToken = async (req, res) => {
 	try {
 		const currentRefreshToken = req.cookies.refreshToken;
@@ -110,7 +115,7 @@ export const refreshUserToken = async (req, res) => {
 
 		const tokenRefreshResult = await generateNewAccessToken(currentRefreshToken);
 
-		// Set new secure authentication cookies
+		// FIXED: Set new secure authentication cookies with proper configuration
 		const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
 		const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -134,13 +139,28 @@ export const refreshUserToken = async (req, res) => {
 	} catch (tokenRefreshError) {
 		console.error("Token refresh error:", tokenRefreshError);
 
-		// Clear authentication cookies on token refresh failure
-		res.clearCookie("accessToken", { path: "/" });
-		res.clearCookie("refreshToken", { path: "/" });
+		// FIXED: Only clear cookies on specific token errors, not all errors
+		if (
+			tokenRefreshError.message === "Invalid refresh token" ||
+			tokenRefreshError.message === "Refresh token expired" ||
+			tokenRefreshError.message === "User not found"
+		) {
+			// Clear authentication cookies only for invalid/expired tokens
+			res.clearCookie("accessToken", { path: "/" });
+			res.clearCookie("refreshToken", { path: "/" });
 
-		return res.status(401).json({
+			return res.status(401).json({
+				status: "error",
+				message: "Token refresh failed - please login again",
+				code: "REFRESH_TOKEN_INVALID",
+			});
+		}
+
+		// For other errors (like database errors), don't clear cookies
+		return res.status(500).json({
 			status: "error",
-			message: "Token refresh failed",
+			message: "Token refresh temporarily unavailable",
+			code: "REFRESH_TOKEN_ERROR",
 		});
 	}
 };

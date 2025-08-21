@@ -1,4 +1,4 @@
-// services/auth.service.js
+// services/auth.service.js (FIXED)
 import bcrypt from "bcryptjs";
 import { prisma } from "../utils/prisma.js";
 import jwt from "jsonwebtoken";
@@ -119,7 +119,7 @@ export const authenticateUserLogin = async (userRecord, providedPassword) => {
 	}
 };
 
-// Generate new access token using refresh token service function
+// FIXED: Generate new access token using refresh token service function
 export const generateNewAccessToken = async (currentRefreshToken) => {
 	try {
 		if (!currentRefreshToken) {
@@ -140,8 +140,8 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 
 		// Check if refresh token has expired
 		if (refreshTokenRecord.expiresAt < new Date()) {
-			// Clean up expired token from database
-			await prisma.refreshToken.delete({
+			// Clean up expired token from database (use deleteMany to avoid errors if already deleted)
+			await prisma.refreshToken.deleteMany({
 				where: { token: currentRefreshToken },
 			});
 			throw new Error("Refresh token expired");
@@ -167,10 +167,10 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 		const newRefreshTokenValue = crypto.randomBytes(40).toString("hex");
 		const newRefreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-		// FIXED: Use atomic transaction with proper error handling for token rotation
+		// FIXED: Use safer token rotation with proper error handling
 		const tokenRotationResult = await prisma.$transaction(async (databaseTransaction) => {
 			// First create the new refresh token
-			const newTokenRecord = await databaseTransaction.refreshToken.create({
+			await databaseTransaction.refreshToken.create({
 				data: {
 					token: newRefreshTokenValue,
 					userId: refreshTokenRecord.user.id,
@@ -178,8 +178,8 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 				},
 			});
 
-			// Only delete the old token after new one is successfully created
-			await databaseTransaction.refreshToken.delete({
+			// Use deleteMany instead of delete to avoid errors if token doesn't exist
+			await databaseTransaction.refreshToken.deleteMany({
 				where: { token: currentRefreshToken },
 			});
 
@@ -206,8 +206,8 @@ export const generateNewAccessToken = async (currentRefreshToken) => {
 export const removeUserSession = async (currentRefreshToken) => {
 	try {
 		if (currentRefreshToken) {
-			// Attempt to delete refresh token from database
-			await prisma.refreshToken.delete({
+			// Use deleteMany to avoid errors if token doesn't exist
+			await prisma.refreshToken.deleteMany({
 				where: { token: currentRefreshToken },
 			});
 		}

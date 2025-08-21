@@ -1,4 +1,4 @@
-// middleware/auth.middleware.js
+// middleware/auth.middleware.js (FIXED)
 import { prisma } from "../utils/prisma.js";
 import jwt from "jsonwebtoken";
 
@@ -24,14 +24,45 @@ const sanitizeUserInput = (userInput) => {
 		.trim(); // Remove leading/trailing whitespace
 };
 
-// Middleware to redirect authenticated users away from auth pages
+// FIXED: Middleware to redirect authenticated users away from auth pages
 export const redirectIfAuthenticated = async (req, res, next) => {
 	try {
 		const userAccessToken = req.cookies?.accessToken;
 
-		// If no access token, user is not authenticated - allow access to auth pages
+		// If no access token, check for refresh token and try silent refresh
 		if (!userAccessToken) {
-			return next();
+			const refreshToken = req.cookies?.refreshToken;
+
+			if (refreshToken) {
+				try {
+					// Verify refresh token exists in database
+					const refreshTokenRecord = await prisma.refreshToken.findUnique({
+						where: { token: refreshToken },
+						include: { user: true },
+					});
+
+					// If valid refresh token exists, user is authenticated
+					if (refreshTokenRecord && refreshTokenRecord.expiresAt > new Date()) {
+						return res.status(302).json({
+							status: "redirect",
+							message: "Already authenticated",
+							redirectUrl: "/",
+							data: {
+								user: {
+									id: refreshTokenRecord.user.id,
+									name: refreshTokenRecord.user.name,
+									email: refreshTokenRecord.user.email,
+								},
+							},
+						});
+					}
+				} catch (refreshCheckError) {
+					// If refresh token check fails, clear it and allow access to auth pages
+					res.clearCookie("refreshToken", { path: "/" });
+				}
+			}
+
+			return next(); // Allow access to auth pages
 		}
 
 		// Verify if the access token is valid
@@ -52,9 +83,38 @@ export const redirectIfAuthenticated = async (req, res, next) => {
 				},
 			});
 		} catch (tokenVerificationError) {
-			// If token is invalid/expired, clear it and allow access to auth pages
+			// If access token is invalid but we have refresh token, try to refresh
+			const refreshToken = req.cookies?.refreshToken;
+
+			if (refreshToken) {
+				try {
+					const refreshTokenRecord = await prisma.refreshToken.findUnique({
+						where: { token: refreshToken },
+						include: { user: true },
+					});
+
+					if (refreshTokenRecord && refreshTokenRecord.expiresAt > new Date()) {
+						return res.status(302).json({
+							status: "redirect",
+							message: "Already authenticated",
+							redirectUrl: "/",
+							data: {
+								user: {
+									id: refreshTokenRecord.user.id,
+									name: refreshTokenRecord.user.name,
+									email: refreshTokenRecord.user.email,
+								},
+							},
+						});
+					}
+				} catch (refreshError) {
+					// Clear invalid tokens
+					res.clearCookie("refreshToken", { path: "/" });
+				}
+			}
+
+			// Clear invalid access token and allow access to auth pages
 			res.clearCookie("accessToken", { path: "/" });
-			res.clearCookie("refreshToken", { path: "/" });
 			return next();
 		}
 	} catch (unexpectedError) {

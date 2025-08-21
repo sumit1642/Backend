@@ -1,4 +1,4 @@
-// index.js (Updated)
+// index.js (FIXED)
 import express from "express";
 import cookieParser from "cookie-parser";
 import { authenticationRoutes } from "./routes/auth.routes.js";
@@ -13,11 +13,17 @@ import { processAllRemainingInteractions } from "./middleware/interaction.deboun
 
 const app = express();
 
-// Security headers middleware - protect against common vulnerabilities
+// FIXED: Security headers middleware - protect against common vulnerabilities
 app.use((req, res, next) => {
 	res.setHeader("X-Content-Type-Options", "nosniff");
 	res.setHeader("X-Frame-Options", "DENY");
 	res.setHeader("X-XSS-Protection", "1; mode=block");
+
+	// FIXED: Add security headers for better cookie handling
+	if (process.env.NODE_ENV === "production") {
+		res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+	}
+
 	next();
 });
 
@@ -26,33 +32,75 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
-// CORS configuration for cross-origin requests
+// FIXED: Enhanced CORS configuration for better cookie handling
 const corsConfigurationOptions = {
-	origin:
-		process.env.NODE_ENV === "production"
-			? process.env.ALLOWED_ORIGINS?.split(",") || false
-			: "http://localhost:5173",
-	credentials: true,
+	origin: function (origin, callback) {
+		// Allow requests with no origin (mobile apps, curl, etc.)
+		if (!origin) return callback(null, true);
+
+		if (process.env.NODE_ENV === "production") {
+			const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+			if (allowedOrigins.includes(origin)) {
+				return callback(null, true);
+			} else {
+				return callback(new Error("Not allowed by CORS"));
+			}
+		} else {
+			// Development mode - allow localhost variants
+			const developmentOrigins = [
+				"http://localhost:5173",
+				"http://localhost:3000",
+				"http://127.0.0.1:5173",
+				"http://127.0.0.1:3000",
+			];
+
+			if (developmentOrigins.includes(origin)) {
+				return callback(null, true);
+			} else {
+				return callback(new Error("Not allowed by CORS"));
+			}
+		}
+	},
+	credentials: true, // CRITICAL: Allow cookies to be sent
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-	allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+	allowedHeaders: [
+		"Origin",
+		"X-Requested-With",
+		"Content-Type",
+		"Accept",
+		"Authorization",
+		"x-last-interaction-time",
+		"x-force-debounce",
+		"x-rapid-comment",
+	],
 	optionsSuccessStatus: 200,
 };
 
-// Apply CORS middleware manually for better control
+// FIXED: Apply CORS middleware with proper cookie support
 app.use((req, res, next) => {
 	const requestOrigin = req.headers.origin;
 
-	// Handle production origins
+	// Handle CORS origin
 	if (process.env.NODE_ENV === "production") {
 		const allowedOriginsList = process.env.ALLOWED_ORIGINS?.split(",") || [];
 		if (allowedOriginsList.includes(requestOrigin)) {
 			res.header("Access-Control-Allow-Origin", requestOrigin);
 		}
 	} else {
-		// Development mode - allow configured origin
-		res.header("Access-Control-Allow-Origin", corsConfigurationOptions.origin);
+		// Development mode - be more permissive with localhost
+		const developmentOrigins = [
+			"http://localhost:5173",
+			"http://localhost:3000",
+			"http://127.0.0.1:5173",
+			"http://127.0.0.1:3000",
+		];
+
+		if (developmentOrigins.includes(requestOrigin)) {
+			res.header("Access-Control-Allow-Origin", requestOrigin);
+		}
 	}
 
+	// CRITICAL: Enable credentials for cookie handling
 	res.header("Access-Control-Allow-Credentials", "true");
 	res.header("Access-Control-Allow-Headers", corsConfigurationOptions.allowedHeaders.join(", "));
 	res.header("Access-Control-Allow-Methods", corsConfigurationOptions.methods.join(", "));
@@ -63,6 +111,11 @@ app.use((req, res, next) => {
 	}
 	next();
 });
+
+// Debug routes (only in development)
+if (process.env.NODE_ENV !== "production") {
+	app.use("/debug", debugRoutes);
+}
 
 // Health check endpoint - verify server status
 app.get("/health", (req, res) => {
@@ -85,7 +138,7 @@ app.use("/api/tags", tagRoute);
 app.get("/", optionalAuth, getAllPostsController);
 
 // API Documentation endpoint
-if (process.env.NODE_ENV == "development") {
+if (process.env.NODE_ENV !== "production") {
 	app.get("/api", (req, res) => {
 		res.status(200).json({
 			status: "success",
@@ -100,6 +153,7 @@ if (process.env.NODE_ENV == "development") {
 			docs: "Visit /api/docs for detailed documentation",
 		});
 	});
+
 	// 404 handler specifically for API routes
 	app.use("/api", (req, res) => {
 		res.status(404).json({
@@ -164,12 +218,26 @@ const handleGracefulShutdown = async (signalName) => {
 process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
 
+// FIXED: Test database connection on startup
+const testDatabaseConnection = async () => {
+	try {
+		await prisma.$queryRaw`SELECT 1`;
+		console.log("📅 Database connected successfully");
+	} catch (error) {
+		console.error("❌ Database connection failed:", error);
+		process.exit(1);
+	}
+};
+
 // Start server
 const SERVER_PORT = process.env.PORT || 3000;
 
-app.listen(SERVER_PORT, () => {
+app.listen(SERVER_PORT, async () => {
 	console.log(`🚀 Server running on http://localhost:${SERVER_PORT}`);
 	console.log(`📊 Health check: http://localhost:${SERVER_PORT}/health`);
 	console.log(`📖 API info: http://localhost:${SERVER_PORT}/api`);
 	console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+
+	// Test database connection
+	await testDatabaseConnection();
 });
