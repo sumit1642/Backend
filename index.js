@@ -10,6 +10,7 @@ import { getAllPostsController } from "./controllers/post.controller.js";
 import { optionalAuth } from "./middleware/posts.middleware.js";
 import { prisma } from "./utils/prisma.js";
 import { processAllRemainingInteractions } from "./middleware/interaction.debounce.middleware.js";
+import { debugRoutes } from "./routes/debug.routes.js";
 
 const app = express();
 
