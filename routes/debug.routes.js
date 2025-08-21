@@ -10,7 +10,3 @@ if (process.env.NODE_ENV !== "production") {
 	debugRoutes.get("/sessions", debugActiveSessions);
 	debugRoutes.post("/cleanup", debugCleanupTokens);
 }
-
-// Add this to your main index.js file:
-// import { debugRoutes } from "./routes/debug.routes.js";
-// app.use("/debug", debugRoutes);
