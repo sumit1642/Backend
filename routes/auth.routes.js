@@ -1,11 +1,6 @@
 // routes/auth.routes.js
 import express from "express";
-import {
-	loginUser,
-	refreshUserToken,
-	registerNewUser,
-	logoutCurrentUser,
-} from "../controllers/auth.controller.js";
+import { loginUser, refreshUserToken, registerNewUser, logoutCurrentUser } from "../controllers/auth.controller.js";
 import {
 	validateLoginCredentials,
 	validateRegistrationData,
@@ -18,12 +13,7 @@ export const authenticationRoutes = express.Router();
 // If user is already authenticated, they will be redirected to home page
 
 // User registration endpoint - creates new user account
-authenticationRoutes.post(
-	"/register",
-	redirectIfAuthenticated,
-	validateRegistrationData,
-	registerNewUser,
-);
+authenticationRoutes.post("/register", redirectIfAuthenticated, validateRegistrationData, registerNewUser);
 
 // User login endpoint - authenticates existing user
 authenticationRoutes.post("/login", redirectIfAuthenticated, validateLoginCredentials, loginUser);
