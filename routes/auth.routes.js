@@ -17,7 +17,7 @@ export const authenticationRoutes = express.Router();
 // Public authentication routes with redirect protection for logged-in users
 // If user is already authenticated, they will be redirected to home page
 
-// User registration endpoint - creates new user account
+// User registration endpoint - creates new use account
 authenticationRoutes.post(
 	"/register",
 	redirectIfAuthenticated,
