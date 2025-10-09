@@ -81,9 +81,16 @@ export const getAllPosts = async ({ published, userId }) => {
 			whereClause.published = published;
 		}
 
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
 		const posts = await prisma.post.findMany({
 			where: whereClause,
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
 			include: {
 				author: {
 					select: {

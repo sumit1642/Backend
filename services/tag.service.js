@@ -157,6 +157,12 @@ export const getPostsByTag = async (tagId, userId) => {
 			throw new Error("Tag not found");
 		}
 
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
 		// Get posts with this tag
 		const posts = await prisma.post.findMany({
 			where: {
@@ -168,6 +174,7 @@ export const getPostsByTag = async (tagId, userId) => {
 				published: true, // Only show published posts
 			},
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
 			include: {
 				author: {
 					select: {
@@ -263,10 +270,17 @@ export const getPostsByMultipleTags = async (tagIds, mode = "any", userId) => {
 			};
 		}
 
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
 		// Get posts with the specified tags
 		const posts = await prisma.post.findMany({
 			where: whereClause,
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
 			include: {
 				author: {
 					select: {
