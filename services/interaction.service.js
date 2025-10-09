@@ -139,10 +139,18 @@ export const addComment = async (userId, postId, content) => {
 		// Check if post exists
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
+			select: {
+				id: true,
+				commentsEnabled: true,
+			},
 		});
 
 		if (!post) {
 			throw new Error("Post not found");
+		}
+
+		if (!post.commentsEnabled) {
+			throw new Error("Comments are disabled for this post");
 		}
 
 		// Create comment

@@ -99,6 +99,13 @@ export const addCommentController = async (req, res) => {
 			});
 		}
 
+		if (err.message === "Comments are disabled for this post") {
+			return res.status(403).json({
+				status: "error",
+				message: "Comments are disabled for this post",
+			});
+		}
+
 		return res.status(500).json({
 			status: "error",
 			message: "Failed to add comment",
