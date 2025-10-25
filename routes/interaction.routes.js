@@ -1,9 +1,9 @@
-// routes/interaction.routes.js
 import express from "express";
 import {
 	toggleLikeController,
 	addCommentController,
 	getCommentsController,
+	getCommentsPaginatedController,
 	deleteCommentController,
 	updateCommentController,
 } from "../controllers/interaction.controller.js";
@@ -17,22 +17,8 @@ interactionRoute.post("/posts/:postId/like", requireAuth, toggleLikeController);
 
 // Comment routes
 interactionRoute.get("/posts/:postId/comments", getCommentsController); // Public - anyone can view comments
-interactionRoute.post(
-	"/posts/:postId/comments",
-	requireAuth,
-	validateCommentData,
-	addCommentController,
-);
-interactionRoute.put(
-	"/comments/:commentId",
-	requireAuth,
-	validateCommentData,
-	updateCommentController,
-);
-interactionRoute.patch(
-	"/comments/:commentId",
-	requireAuth,
-	validateCommentData,
-	updateCommentController,
-);
+interactionRoute.get("/posts/:postId/comments/paginated", getCommentsPaginatedController); // Public - paginated comments
+interactionRoute.post("/posts/:postId/comments", requireAuth, validateCommentData, addCommentController);
+interactionRoute.put("/comments/:commentId", requireAuth, validateCommentData, updateCommentController);
+interactionRoute.patch("/comments/:commentId", requireAuth, validateCommentData, updateCommentController);
 interactionRoute.delete("/comments/:commentId", requireAuth, deleteCommentController);

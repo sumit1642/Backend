@@ -201,6 +201,58 @@ export const getComments = async (postId) => {
 	}
 };
 
+export const getCommentsPaginated = async (postId, limit = 5, offset = 0) => {
+	try {
+		// Check if post exists
+		const post = await prisma.post.findUnique({
+			where: { id: postId },
+		});
+
+		if (!post) {
+			throw new Error("Post not found");
+		}
+
+		// Get total count of comments for this post
+		const total = await prisma.comment.count({
+			where: { postId },
+		});
+
+		// Get paginated comments
+		const comments = await prisma.comment.findMany({
+			where: { postId },
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+					},
+				},
+			},
+			take: limit,
+			skip: offset,
+		});
+
+		// Calculate pagination metadata
+		const hasMore = offset + limit < total;
+		const nextOffset = offset + limit;
+
+		return {
+			comments,
+			pagination: {
+				total,
+				limit,
+				offset,
+				hasMore,
+				nextOffset,
+			},
+		};
+	} catch (error) {
+		console.error("Get comments paginated error:", error);
+		throw error;
+	}
+};
+
 export const deleteComment = async (userId, commentId) => {
 	try {
 		// Check if comment exists and user owns it

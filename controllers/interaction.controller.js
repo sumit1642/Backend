@@ -3,12 +3,14 @@ import {
 	toggleLike,
 	addComment,
 	getComments,
+	getCommentsPaginated,
 	deleteComment,
 	updateComment,
 } from "../services/interaction.service.js";
+import { validatePaginationParams } from "../utils/pagination-validation.js";
 
 const validatePostId = (postId) => {
-	const parsedId = parseInt(postId);
+	const parsedId = Number.parseInt(postId);
 	if (isNaN(parsedId) || parsedId <= 0) {
 		return null;
 	}
@@ -16,7 +18,7 @@ const validatePostId = (postId) => {
 };
 
 const validateCommentId = (commentId) => {
-	const parsedId = parseInt(commentId);
+	const parsedId = Number.parseInt(commentId);
 	if (isNaN(parsedId) || parsedId <= 0) {
 		return null;
 	}
@@ -126,6 +128,51 @@ export const getCommentsController = async (req, res) => {
 		});
 	} catch (err) {
 		console.error("Get Comments Controller Error:", err);
+
+		if (err.message === "Post not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "Post not found",
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Failed to fetch comments",
+		});
+	}
+};
+
+export const getCommentsPaginatedController = async (req, res) => {
+	try {
+		const postId = validatePostId(req.params.postId);
+		const limit = req.query.limit || 5;
+		const offset = req.query.offset || 0;
+
+		if (!postId) {
+			return res.status(400).json({
+				status: "error",
+				message: "Invalid post ID",
+			});
+		}
+
+		const validation = validatePaginationParams(limit, offset);
+		if (!validation.isValid) {
+			return res.status(400).json({
+				status: "error",
+				message: validation.error,
+			});
+		}
+
+		const result = await getCommentsPaginated(postId, validation.limit, validation.offset);
+
+		return res.status(200).json({
+			status: "success",
+			message: "Comments fetched successfully",
+			data: result,
+		});
+	} catch (err) {
+		console.error("Get Comments Paginated Controller Error:", err);
 
 		if (err.message === "Post not found") {
 			return res.status(404).json({
