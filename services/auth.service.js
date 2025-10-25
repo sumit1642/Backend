@@ -279,3 +279,56 @@ export const getUserSessionInformation = async (userId) => {
 		throw sessionInfoError;
 	}
 };
+export const generateAuthTokensForUser = async (userRecord) => {
+	try {
+		// Clean up expired refresh tokens for this user before creating new ones
+		await prisma.refreshToken.deleteMany({
+			where: {
+				userId: userRecord.id,
+				expiresAt: {
+					lt: new Date(), // Less than current time = expired
+				},
+			},
+		});
+
+		// Create JWT access token with user information
+		const accessTokenPayload = {
+			userId: userRecord.id,
+			email: userRecord.email,
+			name: userRecord.name,
+		};
+
+		const newAccessToken = jwt.sign(
+			accessTokenPayload,
+			JWT_SECRET_KEY,
+			{ expiresIn: "15m" }, // Short-lived for security
+		);
+
+		// Generate secure refresh token using crypto
+		const refreshTokenValue = crypto.randomBytes(40).toString("hex");
+		const refreshTokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+		// Store refresh token in database
+		await prisma.refreshToken.create({
+			data: {
+				token: refreshTokenValue,
+				userId: userRecord.id,
+				expiresAt: refreshTokenExpiryDate,
+			},
+		});
+
+		// Return authentication result with tokens and user data
+		return {
+			accessToken: newAccessToken,
+			refreshToken: refreshTokenValue,
+			user: {
+				id: userRecord.id,
+				name: userRecord.name,
+				email: userRecord.email,
+			},
+		};
+	} catch (tokenGenerationError) {
+		console.error("Token generation error:", tokenGenerationError);
+		throw tokenGenerationError;
+	}
+};
