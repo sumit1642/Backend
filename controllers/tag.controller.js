@@ -1,4 +1,3 @@
-// controllers/tag.controller.js
 import {
 	getAllTags,
 	addTagToPost,
@@ -6,17 +5,10 @@ import {
 	getPostsByTag,
 	getUserLikedTags,
 } from "../services/tag.service.js";
-
-const validateTagId = (tagId) => {
-	const parsedId = parseInt(tagId);
-	if (isNaN(parsedId) || parsedId <= 0) {
-		return null;
-	}
-	return parsedId;
-};
+import { decodeAndValidateTagName } from "../utils/tag-validation.js";
 
 const validatePostId = (postId) => {
-	const parsedId = parseInt(postId);
+	const parsedId = Number.parseInt(postId);
 	if (isNaN(parsedId) || parsedId <= 0) {
 		return null;
 	}
@@ -117,7 +109,7 @@ export const addTagToPostController = async (req, res) => {
 export const removeTagFromPostController = async (req, res) => {
 	try {
 		const postId = validatePostId(req.params.postId);
-		const tagId = validateTagId(req.params.tagId);
+		const encodedTagName = req.params.tagName;
 		const userId = req.user.userId;
 
 		if (!postId) {
@@ -127,14 +119,15 @@ export const removeTagFromPostController = async (req, res) => {
 			});
 		}
 
-		if (!tagId) {
+		const tagName = decodeAndValidateTagName(encodedTagName);
+		if (!tagName) {
 			return res.status(400).json({
 				status: "error",
-				message: "Invalid tag ID",
+				message: "Invalid tag name format",
 			});
 		}
 
-		await removeTagFromPost(postId, tagId, userId);
+		await removeTagFromPost(postId, tagName, userId);
 
 		return res.status(200).json({
 			status: "success",
@@ -157,6 +150,13 @@ export const removeTagFromPostController = async (req, res) => {
 			});
 		}
 
+		if (err.message === "Tag not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "Tag not found",
+			});
+		}
+
 		if (err.message === "Tag not found on this post") {
 			return res.status(404).json({
 				status: "error",
@@ -173,17 +173,18 @@ export const removeTagFromPostController = async (req, res) => {
 
 export const getPostsByTagController = async (req, res) => {
 	try {
-		const tagId = validateTagId(req.params.tagId);
+		const encodedTagName = req.params.tagName;
 		const userId = req.user?.userId;
 
-		if (!tagId) {
+		const tagName = decodeAndValidateTagName(encodedTagName);
+		if (!tagName) {
 			return res.status(400).json({
 				status: "error",
-				message: "Invalid tag ID",
+				message: "Invalid tag name format",
 			});
 		}
 
-		const posts = await getPostsByTag(tagId, userId);
+		const posts = await getPostsByTag(tagName, userId);
 
 		return res.status(200).json({
 			status: "success",

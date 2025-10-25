@@ -1,4 +1,3 @@
-// services/tag.service.js
 import { prisma } from "../utils/prisma.js";
 
 // FIXED: Centralized tag name transformation function to ensure consistency
@@ -102,7 +101,7 @@ export const addTagToPost = async (postId, tagName, userId) => {
 	}
 };
 
-export const removeTagFromPost = async (postId, tagId, userId) => {
+export const removeTagFromPost = async (postId, tagName, userId) => {
 	try {
 		// Check if post exists and user owns it
 		const post = await prisma.post.findUnique({
@@ -117,12 +116,21 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 			throw new Error("Unauthorized");
 		}
 
+		// Find tag by name
+		const tag = await prisma.tag.findUnique({
+			where: { name: tagName },
+		});
+
+		if (!tag) {
+			throw new Error("Tag not found");
+		}
+
 		// Check if post has this tag
 		const postTag = await prisma.postTag.findUnique({
 			where: {
 				postId_tagId: {
 					postId,
-					tagId,
+					tagId: tag.id,
 				},
 			},
 		});
@@ -136,7 +144,7 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 			where: {
 				postId_tagId: {
 					postId,
-					tagId,
+					tagId: tag.id,
 				},
 			},
 		});
@@ -146,11 +154,11 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 	}
 };
 
-export const getPostsByTag = async (tagId, userId) => {
+export const getPostsByTag = async (tagName, userId) => {
 	try {
-		// Check if tag exists
+		// Check if tag exists by name
 		const tag = await prisma.tag.findUnique({
-			where: { id: tagId },
+			where: { name: tagName },
 		});
 
 		if (!tag) {
@@ -162,7 +170,7 @@ export const getPostsByTag = async (tagId, userId) => {
 			where: {
 				tags: {
 					some: {
-						tagId,
+						tagId: tag.id,
 					},
 				},
 				published: true, // Only show published posts
