@@ -4,6 +4,7 @@ import {
 	authenticateUserLogin,
 	generateNewAccessToken,
 	removeUserSession,
+	generateAuthTokensForUser,
 } from "../services/auth.service.js";
 
 // Create secure cookie configuration for different token types
@@ -21,10 +22,30 @@ export const registerNewUser = async (req, res) => {
 		const { name, email, password } = req.body;
 		const newUserData = await createNewUserAccount({ name, email, password });
 
-		return res.status(201).json({
+		// <CHANGE> Generate tokens and set cookies for auto-login
+		const authenticationResult = await generateAuthTokensForUser(newUserData);
+
+		// Set secure authentication cookies
+		const accessTokenExpiryTime = 15 * 60 * 1000; // 15 minutes
+		const refreshTokenExpiryTime = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+		res.cookie(
+			"accessToken",
+			authenticationResult.accessToken,
+			createSecureCookieConfiguration(accessTokenExpiryTime),
+		);
+
+		res.cookie(
+			"refreshToken",
+			authenticationResult.refreshToken,
+			createSecureCookieConfiguration(refreshTokenExpiryTime),
+		);
+
+		// <CHANGE> Return 200 instead of 201 (user is now authenticated)
+		return res.status(200).json({
 			status: "success",
-			message: "User registered successfully",
-			data: { user: newUserData },
+			message: "User registered and logged in successfully",
+			data: { user: authenticationResult.user },
 		});
 	} catch (registrationError) {
 		console.error("User registration error:", registrationError);
