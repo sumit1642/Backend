@@ -252,3 +252,100 @@ export const getUserLikedTags = async (userId) => {
 		throw error;
 	}
 };
+
+/**
+ * @param {string[]} tagNames - Array of tag names to filter by
+ * @param {number} userId - Optional user ID for like status
+ * @returns {Promise<Object[]>} - Array of posts with all specified tags
+ */
+
+export const getPostsByMultipleTags = async (tagNames, userId) => {
+	try {
+		if (!Array.isArray(tagNames) || tagNames.length === 0) {
+			throw new Error("At least one tag name is required");
+		}
+
+		// Find all tags by name
+		const tags = await prisma.tag.findMany({
+			where: {
+				name: {
+					in: tagNames,
+				},
+			},
+		});
+
+		// Check if all requested tags exist
+		if (tags.length !== tagNames.length) {
+			const foundTagNames = tags.map((t) => t.name);
+			const missingTags = tagNames.filter((name) => !foundTagNames.includes(name));
+			throw new Error(`Tags not found: ${missingTags.join(", ")}`);
+		}
+
+		const tagIds = tags.map((tag) => tag.id);
+
+		// Get posts that have ALL specified tags (intersection logic)
+		// Using findMany with every condition to ensure post has all tags
+		const posts = await prisma.post.findMany({
+			where: {
+				published: true, // Only show published posts
+				tags: {
+					every: {
+						tagId: {
+							in: tagIds,
+						},
+					},
+				},
+			},
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+				},
+			},
+		});
+
+		// Filter posts to ensure they have ALL requested tags
+		// (every condition alone doesn't guarantee all tags are present)
+		const filteredPosts = posts.filter((post) => {
+			const postTagNames = post.tags.map((pt) => pt.tag.name);
+			return tagNames.every((tagName) => postTagNames.includes(tagName));
+		});
+
+		return filteredPosts.map((post) => ({
+			id: post.id,
+			title: post.title,
+			content: post.content,
+			published: post.published,
+			createdAt: post.createdAt,
+			updatedAt: post.updatedAt,
+			author: post.author,
+			commentsCount: post.comments.length,
+			likesCount: post.likes.length,
+			isLikedByUser: userId ? post.likes.some((like) => like.userId === userId) : false,
+			tags: post.tags.map((pt) => pt.tag),
+		}));
+	} catch (error) {
+		console.error("Get posts by multiple tags error:", error);
+		throw error;
+	}
+};

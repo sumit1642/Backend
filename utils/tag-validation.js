@@ -46,3 +46,47 @@ export const decodeAndValidateTagName = (encodedTagName) => {
 export const encodeTagName = (tagName) => {
 	return encodeURIComponent(tagName);
 };
+
+/**
+ * @param {string} tagsString - Comma-separated tag names (URL-encoded)
+ * @returns {string[]|null} - Array of validated tag names or null if invalid
+ */
+export const parseAndValidateMultipleTags = (tagsString) => {
+	if (!tagsString || typeof tagsString !== "string") {
+		return null;
+	}
+
+	try {
+		// Split by comma and decode each tag
+		const tagNames = tagsString
+			.split(",")
+			.map((tag) => {
+				const decoded = decodeURIComponent(tag.trim());
+				return validateTagName(decoded);
+			})
+			.filter((tag) => tag !== null);
+
+		// Return null if no valid tags or if any tag failed validation
+		if (tagNames.length === 0 || tagNames.length !== tagsString.split(",").length) {
+			return null;
+		}
+
+		// Remove duplicates while preserving order
+		return [...new Set(tagNames)];
+	} catch (error) {
+		console.error("Multiple tags parsing error:", error);
+		return null;
+	}
+};
+
+/**
+ * @param {string[]} tagNames - Array of tag names
+ * @returns {string} - Comma-separated URL-encoded tag names
+ */
+export const encodeMultipleTags = (tagNames) => {
+	if (!Array.isArray(tagNames) || tagNames.length === 0) {
+		return "";
+	}
+
+	return tagNames.map((tag) => encodeURIComponent(tag)).join(",");
+};

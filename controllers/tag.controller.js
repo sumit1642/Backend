@@ -4,8 +4,9 @@ import {
 	removeTagFromPost,
 	getPostsByTag,
 	getUserLikedTags,
+	getPostsByMultipleTags,
 } from "../services/tag.service.js";
-import { decodeAndValidateTagName } from "../utils/tag-validation.js";
+import { decodeAndValidateTagName, parseAndValidateMultipleTags } from "../utils/tag-validation.js";
 
 const validatePostId = (postId) => {
 	const parsedId = Number.parseInt(postId);
@@ -204,6 +205,54 @@ export const getPostsByTagController = async (req, res) => {
 		return res.status(500).json({
 			status: "error",
 			message: "Failed to fetch posts by tag",
+		});
+	}
+};
+
+/**
+ * NEW: Get posts filtered by multiple tags (intersection logic)
+ * Query parameter: ?tags=tag1,tag2,tag3
+ */
+export const getPostsByMultipleTagsController = async (req, res) => {
+	try {
+		const { tags: tagsString } = req.query;
+		const userId = req.user?.userId;
+
+		if (!tagsString) {
+			return res.status(400).json({
+				status: "error",
+				message: "At least one tag is required. Use query parameter: ?tags=tag1,tag2",
+			});
+		}
+
+		const tagNames = parseAndValidateMultipleTags(tagsString);
+		if (!tagNames || tagNames.length === 0) {
+			return res.status(400).json({
+				status: "error",
+				message: "Invalid tag names format. Tags must be comma-separated and valid.",
+			});
+		}
+
+		const posts = await getPostsByMultipleTags(tagNames, userId);
+
+		return res.status(200).json({
+			status: "success",
+			message: `Posts fetched successfully (filtered by ${tagNames.length} tag${tagNames.length > 1 ? "s" : ""})`,
+			data: { posts, appliedTags: tagNames },
+		});
+	} catch (err) {
+		console.error("Get Posts By Multiple Tags Controller Error:", err);
+
+		if (err.message.includes("Tags not found")) {
+			return res.status(404).json({
+				status: "error",
+				message: err.message,
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Failed to fetch posts by multiple tags",
 		});
 	}
 };
