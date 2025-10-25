@@ -1,4 +1,3 @@
-// routes/tag.routes.js
 import express from "express";
 import {
 	getAllTagsController,
@@ -13,9 +12,9 @@ export const tagRoute = express.Router();
 
 // Public routes
 tagRoute.get("/", getAllTagsController); // Get all tags
-tagRoute.get("/:tagId/posts", optionalAuth, getPostsByTagController); // Get posts by tag
+tagRoute.get("/:tagName/posts", optionalAuth, getPostsByTagController); // Get posts by tag name
 
 // Protected routes (require authentication)
 tagRoute.get("/liked", requireAuth, getUserLikedTagsController); // Get user's liked tags
 tagRoute.post("/posts/:postId", requireAuth, validateTagData, addTagToPostController); // Add tag to post
-tagRoute.delete("/posts/:postId/:tagId", requireAuth, removeTagFromPostController); // Remove tag from post
+tagRoute.delete("/posts/:postId/:tagName", requireAuth, removeTagFromPostController); // Remove tag from post

@@ -10,6 +10,7 @@ import {
 	getUserPostsController,
 	updatePostController,
 } from "../controllers/post.controller.js";
+import { getPostsByMultipleTagsController } from "../controllers/tag.controller.js";
 
 export const postRoute = express.Router();
 
@@ -19,6 +20,9 @@ postRoute.post("/", requireAuth, validatePostData, createPostController);
 postRoute.put("/:postId", requireAuth, validatePostData, updatePostController);
 postRoute.patch("/:postId", requireAuth, validatePostData, updatePostController);
 postRoute.delete("/:postId", requireAuth, deletePostController);
+
+
+postRoute.get("/filter/by-tags", optionalAuth, getPostsByMultipleTagsController);
 
 // Public routes (optional authentication for enhanced features)
 postRoute.get("/", optionalAuth, getAllPostsController);

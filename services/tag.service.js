@@ -1,4 +1,3 @@
-// services/tag.service.js
 import { prisma } from "../utils/prisma.js";
 
 // FIXED: Centralized tag name transformation function to ensure consistency
@@ -102,7 +101,7 @@ export const addTagToPost = async (postId, tagName, userId) => {
 	}
 };
 
-export const removeTagFromPost = async (postId, tagId, userId) => {
+export const removeTagFromPost = async (postId, tagName, userId) => {
 	try {
 		// Check if post exists and user owns it
 		const post = await prisma.post.findUnique({
@@ -117,12 +116,21 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 			throw new Error("Unauthorized");
 		}
 
+		// Find tag by name
+		const tag = await prisma.tag.findUnique({
+			where: { name: tagName },
+		});
+
+		if (!tag) {
+			throw new Error("Tag not found");
+		}
+
 		// Check if post has this tag
 		const postTag = await prisma.postTag.findUnique({
 			where: {
 				postId_tagId: {
 					postId,
-					tagId,
+					tagId: tag.id,
 				},
 			},
 		});
@@ -136,7 +144,7 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 			where: {
 				postId_tagId: {
 					postId,
-					tagId,
+					tagId: tag.id,
 				},
 			},
 		});
@@ -146,11 +154,11 @@ export const removeTagFromPost = async (postId, tagId, userId) => {
 	}
 };
 
-export const getPostsByTag = async (tagId, userId) => {
+export const getPostsByTag = async (tagName, userId) => {
 	try {
-		// Check if tag exists
+		// Check if tag exists by name
 		const tag = await prisma.tag.findUnique({
-			where: { id: tagId },
+			where: { name: tagName },
 		});
 
 		if (!tag) {
@@ -162,7 +170,7 @@ export const getPostsByTag = async (tagId, userId) => {
 			where: {
 				tags: {
 					some: {
-						tagId,
+						tagId: tag.id,
 					},
 				},
 				published: true, // Only show published posts
@@ -241,6 +249,103 @@ export const getUserLikedTags = async (userId) => {
 		}));
 	} catch (error) {
 		console.error("Get user liked tags error:", error);
+		throw error;
+	}
+};
+
+/**
+ * @param {string[]} tagNames - Array of tag names to filter by
+ * @param {number} userId - Optional user ID for like status
+ * @returns {Promise<Object[]>} - Array of posts with all specified tags
+ */
+
+export const getPostsByMultipleTags = async (tagNames, userId) => {
+	try {
+		if (!Array.isArray(tagNames) || tagNames.length === 0) {
+			throw new Error("At least one tag name is required");
+		}
+
+		// Find all tags by name
+		const tags = await prisma.tag.findMany({
+			where: {
+				name: {
+					in: tagNames,
+				},
+			},
+		});
+
+		// Check if all requested tags exist
+		if (tags.length !== tagNames.length) {
+			const foundTagNames = tags.map((t) => t.name);
+			const missingTags = tagNames.filter((name) => !foundTagNames.includes(name));
+			throw new Error(`Tags not found: ${missingTags.join(", ")}`);
+		}
+
+		const tagIds = tags.map((tag) => tag.id);
+
+		// Get posts that have ALL specified tags (intersection logic)
+		// Using findMany with every condition to ensure post has all tags
+		const posts = await prisma.post.findMany({
+			where: {
+				published: true, // Only show published posts
+				tags: {
+					every: {
+						tagId: {
+							in: tagIds,
+						},
+					},
+				},
+			},
+			orderBy: { createdAt: "desc" },
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+				},
+			},
+		});
+
+		// Filter posts to ensure they have ALL requested tags
+		// (every condition alone doesn't guarantee all tags are present)
+		const filteredPosts = posts.filter((post) => {
+			const postTagNames = post.tags.map((pt) => pt.tag.name);
+			return tagNames.every((tagName) => postTagNames.includes(tagName));
+		});
+
+		return filteredPosts.map((post) => ({
+			id: post.id,
+			title: post.title,
+			content: post.content,
+			published: post.published,
+			createdAt: post.createdAt,
+			updatedAt: post.updatedAt,
+			author: post.author,
+			commentsCount: post.comments.length,
+			likesCount: post.likes.length,
+			isLikedByUser: userId ? post.likes.some((like) => like.userId === userId) : false,
+			tags: post.tags.map((pt) => pt.tag),
+		}));
+	} catch (error) {
+		console.error("Get posts by multiple tags error:", error);
 		throw error;
 	}
 };
