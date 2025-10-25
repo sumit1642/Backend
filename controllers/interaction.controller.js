@@ -6,6 +6,8 @@ import {
 	getCommentsPaginated,
 	deleteComment,
 	updateComment,
+	getLikeCount,
+	getBatchLikeStatus,
 } from "../services/interaction.service.js";
 import { validatePaginationParams } from "../utils/pagination-validation.js";
 
@@ -57,9 +59,123 @@ export const toggleLikeController = async (req, res) => {
 			});
 		}
 
+		if (err.statusCode === 429) {
+			return res.status(429).json({
+				status: "error",
+				message: err.message,
+				retryAfter: err.retryAfter,
+			});
+		}
+
 		return res.status(500).json({
 			status: "error",
 			message: "Failed to toggle like",
+		});
+	}
+};
+
+export const getLikeCountController = async (req, res) => {
+	try {
+		const postId = validatePostId(req.params.postId);
+		const userId = req.user?.userId;
+
+		if (!postId) {
+			return res.status(400).json({
+				status: "error",
+				message: "Invalid post ID",
+			});
+		}
+
+		const likeCount = await getLikeCount(postId);
+
+		return res.status(200).json({
+			status: "success",
+			message: "Like count fetched successfully",
+			data: {
+				postId,
+				likeCount,
+				isLikedByUser: userId ? null : false, // Will be determined by client if needed
+			},
+		});
+	} catch (err) {
+		console.error("Get Like Count Controller Error:", err);
+
+		if (err.message === "Post not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "Post not found",
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Failed to fetch like count",
+		});
+	}
+};
+
+export const getBatchLikeStatusController = async (req, res) => {
+	try {
+		const { postIds } = req.body;
+		const userId = req.user?.userId;
+
+		if (!Array.isArray(postIds)) {
+			return res.status(400).json({
+				status: "error",
+				message: "postIds must be an array",
+			});
+		}
+
+		if (postIds.length === 0) {
+			return res.status(400).json({
+				status: "error",
+				message: "postIds array cannot be empty",
+			});
+		}
+
+		if (postIds.length > 50) {
+			return res.status(400).json({
+				status: "error",
+				message: "Maximum 50 posts allowed per request",
+			});
+		}
+
+		// Validate all postIds are numbers
+		const validatedIds = postIds.map((id) => {
+			const parsed = Number.parseInt(id);
+			if (isNaN(parsed) || parsed <= 0) {
+				throw new Error("Invalid post ID");
+			}
+			return parsed;
+		});
+
+		const likeStatus = await getBatchLikeStatus(validatedIds, userId);
+
+		return res.status(200).json({
+			status: "success",
+			message: "Like status fetched successfully",
+			data: likeStatus,
+		});
+	} catch (err) {
+		console.error("Get Batch Like Status Controller Error:", err);
+
+		if (err.message === "One or more posts not found") {
+			return res.status(404).json({
+				status: "error",
+				message: "One or more posts not found",
+			});
+		}
+
+		if (err.message === "Invalid post ID") {
+			return res.status(400).json({
+				status: "error",
+				message: "Invalid post ID in array",
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Failed to fetch like status",
 		});
 	}
 };

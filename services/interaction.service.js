@@ -1,8 +1,19 @@
 // services/interaction.service.js
 import { prisma } from "../utils/prisma.js";
+import { checkRateLimit } from "../utils/like-rate-limiter.js";
+import { getCachedLikeCount, setCachedLikeCount, invalidateLikeCache } from "../utils/like-cache.js";
 
 export const toggleLike = async (userId, postId) => {
 	try {
+		// Check rate limits
+		const rateLimitCheck = await checkRateLimit(userId, postId);
+		if (!rateLimitCheck.allowed) {
+			const error = new Error(rateLimitCheck.reason);
+			error.statusCode = 429;
+			error.retryAfter = rateLimitCheck.retryAfter;
+			throw error;
+		}
+
 		// Check if post exists
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
@@ -45,13 +56,12 @@ export const toggleLike = async (userId, postId) => {
 					},
 				});
 
-				// FIXED: Only remove user liked tags that are ONLY from this specific post
-				// First, get all other posts this user has liked
+				// Only remove user liked tags that are ONLY from this specific post
 				const userOtherLikedPosts = await transactionClient.like.findMany({
 					where: {
 						userId,
 						postId: {
-							not: postId, // Exclude the current post being unliked
+							not: postId,
 						},
 					},
 					include: {
@@ -67,7 +77,6 @@ export const toggleLike = async (userId, postId) => {
 					},
 				});
 
-				// Get all tag IDs from other liked posts
 				const tagIdsFromOtherLikedPosts = new Set();
 				userOtherLikedPosts.forEach((likedPost) => {
 					likedPost.post.tags.forEach((postTag) => {
@@ -75,7 +84,6 @@ export const toggleLike = async (userId, postId) => {
 					});
 				});
 
-				// Only remove liked tags that are NOT in other liked posts
 				for (const postTag of post.tags) {
 					if (!tagIdsFromOtherLikedPosts.has(postTag.tag.id)) {
 						await transactionClient.userLikedTag.deleteMany({
@@ -107,7 +115,7 @@ export const toggleLike = async (userId, postId) => {
 								tagId: postTag.tag.id,
 							},
 						},
-						update: {}, // Do nothing if already exists
+						update: {},
 						create: {
 							userId,
 							tagId: postTag.tag.id,
@@ -126,6 +134,8 @@ export const toggleLike = async (userId, postId) => {
 
 			return { isLiked, likeCount, message };
 		});
+
+		invalidateLikeCache(postId);
 
 		return result;
 	} catch (error) {
@@ -310,6 +320,109 @@ export const updateComment = async (userId, commentId, content) => {
 		return comment;
 	} catch (error) {
 		console.error("Update comment error:", error);
+		throw error;
+	}
+};
+
+export const getLikeCount = async (postId) => {
+	try {
+		// Check if post exists
+		const post = await prisma.post.findUnique({
+			where: { id: postId },
+			select: { id: true },
+		});
+
+		if (!post) {
+			throw new Error("Post not found");
+		}
+
+		// Check cache first
+		const cachedCount = getCachedLikeCount(postId);
+		if (cachedCount !== null) {
+			return cachedCount;
+		}
+
+		// Get from database
+		const likeCount = await prisma.like.count({
+			where: { postId },
+		});
+
+		// Cache the result
+		setCachedLikeCount(postId, likeCount);
+
+		return likeCount;
+	} catch (error) {
+		console.error("Get like count error:", error);
+		throw error;
+	}
+};
+
+export const getBatchLikeStatus = async (postIds, userId = null) => {
+	try {
+		// Validate postIds
+		if (!Array.isArray(postIds) || postIds.length === 0) {
+			throw new Error("Invalid post IDs");
+		}
+
+		if (postIds.length > 50) {
+			throw new Error("Maximum 50 posts allowed per request");
+		}
+
+		// Check if all posts exist
+		const posts = await prisma.post.findMany({
+			where: {
+				id: {
+					in: postIds,
+				},
+			},
+			select: { id: true },
+		});
+
+		if (posts.length !== postIds.length) {
+			throw new Error("One or more posts not found");
+		}
+
+		// Get like counts for all posts
+		const likeCounts = await prisma.like.groupBy({
+			by: ["postId"],
+			where: {
+				postId: {
+					in: postIds,
+				},
+			},
+			_count: true,
+		});
+
+		// Get user's like status if authenticated
+		let userLikes = [];
+		if (userId) {
+			userLikes = await prisma.like.findMany({
+				where: {
+					userId,
+					postId: {
+						in: postIds,
+					},
+				},
+				select: { postId: true, createdAt: true },
+			});
+		}
+
+		// Build response object
+		const result = {};
+		postIds.forEach((postId) => {
+			const likeData = likeCounts.find((lc) => lc.postId === postId);
+			const userLike = userLikes.find((ul) => ul.postId === postId);
+
+			result[postId] = {
+				count: likeData?._count || 0,
+				isLikedByUser: !!userLike,
+				likedAt: userLike?.createdAt || null,
+			};
+		});
+
+		return result;
+	} catch (error) {
+		console.error("Get batch like status error:", error);
 		throw error;
 	}
 };

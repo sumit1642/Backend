@@ -1,23 +1,29 @@
-// services/post.service.js
 import { prisma } from "../utils/prisma.js";
 
-const formatPost = (post, userId = null) => ({
-	id: post.id,
-	title: post.title,
-	content: post.content,
-	published: post.published,
-	createdAt: post.createdAt,
-	updatedAt: post.updatedAt,
-	author: post.author,
-	commentsCount: post.comments?.length || 0,
-	likesCount: post.likes?.length || 0,
-	isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
-	tags: post.tags?.map((pt) => pt.tag) || [],
-});
+const formatPost = (post, userId = null) => {
+	// Get cached like count or use the count from post.likes
+	const likeCount = post.likes?.length || 0;
+
+	return {
+		id: post.id,
+		title: post.title,
+		content: post.content,
+		published: post.published,
+		createdAt: post.createdAt,
+		updatedAt: post.updatedAt,
+		author: post.author,
+		commentsCount: post.comments?.length || 0,
+		likes: {
+			count: likeCount,
+			isLikedByUser: userId ? post.likes?.some((like) => like.userId === userId) || false : false,
+		},
+		tags: post.tags?.map((pt) => pt.tag) || [],
+	};
+};
 
 export const createPost = async ({ title, content, published, userId }) => {
 	try {
-		// Check for duplicate title per user (from schema constraint)
+		// Check for duplicate title per user
 		const existingPost = await prisma.post.findFirst({
 			where: {
 				title,
@@ -242,7 +248,7 @@ export const updatePost = async (postId, userId, updateData) => {
 
 export const deletePost = async (postId, userId) => {
 	try {
-		// FIXED: Use transaction to ensure data consistency during deletion
+		// Use transaction to ensure data consistency during deletion
 		const result = await prisma.$transaction(async (transactionClient) => {
 			// Check if post exists and user owns it
 			const post = await transactionClient.post.findUnique({
@@ -262,7 +268,7 @@ export const deletePost = async (postId, userId) => {
 				throw new Error("Unauthorized");
 			}
 
-			// Delete post (cascade will handle related records, but we're being explicit)
+			// Delete post (cascade will handle related records)
 			await transactionClient.post.delete({
 				where: { id: postId },
 			});
