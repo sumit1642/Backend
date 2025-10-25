@@ -38,7 +38,7 @@ const safelyTrimStringValue = (value) => {
 
 export const createPostController = async (req, res) => {
 	try {
-		const { title, content, published = false } = req.body;
+		const { title, content, published = false, commentsEnabled = true } = req.body;
 		const userId = req.user.userId;
 
 		if (!title || !title.trim()) {
@@ -59,6 +59,7 @@ export const createPostController = async (req, res) => {
 			title: title.trim(),
 			content: content.trim(),
 			published: Boolean(published),
+			commentsEnabled: Boolean(commentsEnabled),
 			userId,
 		});
 
@@ -148,7 +149,7 @@ export const updatePostController = async (req, res) => {
 	try {
 		const postId = validatePostId(req.params.postId);
 		const userId = req.user.userId;
-		const { title, content, published } = req.body;
+		const { title, content, published, commentsEnabled } = req.body;
 
 		if (!postId) {
 			return res.status(400).json({
@@ -184,6 +185,10 @@ export const updatePostController = async (req, res) => {
 
 		if (published !== undefined) {
 			updateData.published = Boolean(published);
+		}
+
+		if (commentsEnabled !== undefined) {
+			updateData.commentsEnabled = Boolean(commentsEnabled);
 		}
 
 		if (Object.keys(updateData).length === 0) {

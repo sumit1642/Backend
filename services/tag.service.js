@@ -157,6 +157,12 @@ export const getPostsByTag = async (tagId, userId) => {
 			throw new Error("Tag not found");
 		}
 
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
 		// Get posts with this tag
 		const posts = await prisma.post.findMany({
 			where: {
@@ -168,6 +174,7 @@ export const getPostsByTag = async (tagId, userId) => {
 				published: true, // Only show published posts
 			},
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
 			include: {
 				author: {
 					select: {
@@ -200,6 +207,7 @@ export const getPostsByTag = async (tagId, userId) => {
 			title: post.title,
 			content: post.content,
 			published: post.published,
+			commentsEnabled: post.commentsEnabled ?? true,
 			createdAt: post.createdAt,
 			updatedAt: post.updatedAt,
 			author: post.author,
@@ -210,6 +218,112 @@ export const getPostsByTag = async (tagId, userId) => {
 		}));
 	} catch (error) {
 		console.error("Get posts by tag error:", error);
+		throw error;
+	}
+};
+
+export const getPostsByMultipleTags = async (tagIds, mode = "any", userId) => {
+	try {
+		// Validate that tagIds is an array with at least one tag
+		if (!Array.isArray(tagIds) || tagIds.length === 0) {
+			throw new Error("At least one tag ID is required");
+		}
+
+		// Check if all tags exist
+		const tags = await prisma.tag.findMany({
+			where: {
+				id: {
+					in: tagIds,
+				},
+			},
+		});
+
+		if (tags.length !== tagIds.length) {
+			throw new Error("One or more tags not found");
+		}
+
+		// Build the where clause based on mode
+		let whereClause;
+		if (mode === "all") {
+			// AND logic: post must have ALL specified tags
+			whereClause = {
+				AND: tagIds.map((tagId) => ({
+					tags: {
+						some: {
+							tagId,
+						},
+					},
+				})),
+				published: true,
+			};
+		} else {
+			// OR logic (default): post must have ANY of the specified tags
+			whereClause = {
+				tags: {
+					some: {
+						tagId: {
+							in: tagIds,
+						},
+					},
+				},
+				published: true,
+			};
+		}
+
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
+		// Get posts with the specified tags
+		const posts = await prisma.post.findMany({
+			where: whereClause,
+			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
+			include: {
+				author: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				comments: {
+					select: { id: true },
+				},
+				likes: {
+					select: { userId: true },
+				},
+				tags: {
+					include: {
+						tag: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+					},
+				},
+			},
+		});
+
+		return posts.map((post) => ({
+			id: post.id,
+			title: post.title,
+			content: post.content,
+			published: post.published,
+			commentsEnabled: post.commentsEnabled ?? true,
+			createdAt: post.createdAt,
+			updatedAt: post.updatedAt,
+			author: post.author,
+			commentsCount: post.comments.length,
+			likesCount: post.likes.length,
+			isLikedByUser: userId ? post.likes.some((like) => like.userId === userId) : false,
+			tags: post.tags.map((pt) => pt.tag),
+		}));
+	} catch (error) {
+		console.error("Get posts by multiple tags error:", error);
 		throw error;
 	}
 };

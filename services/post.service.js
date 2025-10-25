@@ -6,6 +6,7 @@ const formatPost = (post, userId = null) => ({
 	title: post.title,
 	content: post.content,
 	published: post.published,
+	commentsEnabled: post.commentsEnabled ?? true,
 	createdAt: post.createdAt,
 	updatedAt: post.updatedAt,
 	author: post.author,
@@ -15,7 +16,7 @@ const formatPost = (post, userId = null) => ({
 	tags: post.tags?.map((pt) => pt.tag) || [],
 });
 
-export const createPost = async ({ title, content, published, userId }) => {
+export const createPost = async ({ title, content, published, commentsEnabled = true, userId }) => {
 	try {
 		// Check for duplicate title per user (from schema constraint)
 		const existingPost = await prisma.post.findFirst({
@@ -35,6 +36,7 @@ export const createPost = async ({ title, content, published, userId }) => {
 				title,
 				content,
 				published,
+				commentsEnabled,
 				authorId: userId,
 			},
 			include: {
@@ -79,9 +81,16 @@ export const getAllPosts = async ({ published, userId }) => {
 			whereClause.published = published;
 		}
 
+		// Guest users - limit post count if configured
+		const isGuest = !userId;
+		const guestPostLimit = process.env.GUEST_POST_LIMIT 
+			? parseInt(process.env.GUEST_POST_LIMIT, 10) 
+			: undefined;
+
 		const posts = await prisma.post.findMany({
 			where: whereClause,
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestPostLimit ? { take: guestPostLimit } : {}),
 			include: {
 				author: {
 					select: {

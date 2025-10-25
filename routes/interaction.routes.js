@@ -7,8 +7,7 @@ import {
 	deleteCommentController,
 	updateCommentController,
 } from "../controllers/interaction.controller.js";
-import { requireAuth } from "../middleware/posts.middleware.js";
-import { validateCommentData } from "../middleware/posts.middleware.js";
+import { requireAuth, optionalAuth, validateCommentData } from "../middleware/posts.middleware.js";
 
 export const interactionRoute = express.Router();
 
@@ -16,7 +15,7 @@ export const interactionRoute = express.Router();
 interactionRoute.post("/posts/:postId/like", requireAuth, toggleLikeController);
 
 // Comment routes
-interactionRoute.get("/posts/:postId/comments", getCommentsController); // Public - anyone can view comments
+interactionRoute.get("/posts/:postId/comments", optionalAuth, getCommentsController); // Optional auth - guests have limited access
 interactionRoute.post(
 	"/posts/:postId/comments",
 	requireAuth,

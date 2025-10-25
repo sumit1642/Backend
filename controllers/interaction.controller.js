@@ -99,6 +99,13 @@ export const addCommentController = async (req, res) => {
 			});
 		}
 
+		if (err.message === "Comments are disabled for this post") {
+			return res.status(403).json({
+				status: "error",
+				message: "Comments are disabled for this post",
+			});
+		}
+
 		return res.status(500).json({
 			status: "error",
 			message: "Failed to add comment",
@@ -109,6 +116,7 @@ export const addCommentController = async (req, res) => {
 export const getCommentsController = async (req, res) => {
 	try {
 		const postId = validatePostId(req.params.postId);
+		const userId = req.user?.userId; // Optional auth - can be guest
 
 		if (!postId) {
 			return res.status(400).json({
@@ -117,7 +125,7 @@ export const getCommentsController = async (req, res) => {
 			});
 		}
 
-		const comments = await getComments(postId);
+		const comments = await getComments(postId, userId);
 
 		return res.status(200).json({
 			status: "success",

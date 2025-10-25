@@ -139,10 +139,18 @@ export const addComment = async (userId, postId, content) => {
 		// Check if post exists
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
+			select: {
+				id: true,
+				commentsEnabled: true,
+			},
 		});
 
 		if (!post) {
 			throw new Error("Post not found");
+		}
+
+		if (!post.commentsEnabled) {
+			throw new Error("Comments are disabled for this post");
 		}
 
 		// Create comment
@@ -169,7 +177,7 @@ export const addComment = async (userId, postId, content) => {
 	}
 };
 
-export const getComments = async (postId) => {
+export const getComments = async (postId, userId = null) => {
 	try {
 		// Check if post exists
 		const post = await prisma.post.findUnique({
@@ -180,10 +188,17 @@ export const getComments = async (postId) => {
 			throw new Error("Post not found");
 		}
 
+		// Guest users - limit comment visibility if configured
+		const isGuest = !userId;
+		const guestCommentLimit = process.env.GUEST_COMMENT_LIMIT 
+			? parseInt(process.env.GUEST_COMMENT_LIMIT, 10) 
+			: undefined;
+
 		// Get comments
 		const comments = await prisma.comment.findMany({
 			where: { postId },
 			orderBy: { createdAt: "desc" },
+			...(isGuest && guestCommentLimit ? { take: guestCommentLimit } : {}),
 			include: {
 				author: {
 					select: {

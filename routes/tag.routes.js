@@ -5,6 +5,7 @@ import {
 	addTagToPostController,
 	removeTagFromPostController,
 	getPostsByTagController,
+	getPostsByMultipleTagsController,
 	getUserLikedTagsController,
 } from "../controllers/tag.controller.js";
 import { requireAuth, optionalAuth, validateTagData } from "../middleware/posts.middleware.js";
@@ -13,6 +14,7 @@ export const tagRoute = express.Router();
 
 // Public routes
 tagRoute.get("/", getAllTagsController); // Get all tags
+tagRoute.get("/posts", optionalAuth, getPostsByMultipleTagsController); // Get posts by multiple tags
 tagRoute.get("/:tagId/posts", optionalAuth, getPostsByTagController); // Get posts by tag
 
 // Protected routes (require authentication)

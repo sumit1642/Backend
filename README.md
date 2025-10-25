@@ -355,7 +355,8 @@ JWT tokens stored in HTTP-only cookies:
 {
   "title": "My New Post",
   "content": "Post content here...",
-  "published": false
+  "published": false,
+  "commentsEnabled": true
 }
 ```
 
@@ -363,12 +364,14 @@ JWT tokens stored in HTTP-only cookies:
 - **Title**: 1-50 characters, required, must be unique per user, HTML stripped
 - **Content**: 1-191 characters, required, HTML stripped
 - **Published**: Boolean, optional (defaults to false)
+- **CommentsEnabled**: Boolean, optional (defaults to true) - Controls whether users can comment on this post
 
 **Behavior:**
 - Validates user authentication
 - Sanitizes input (XSS protection)
 - Checks for duplicate title per user
 - Creates post with current user as author
+- Sets comment controls based on commentsEnabled flag
 - Returns formatted post data
 - Updates `updatedAt` timestamp
 
@@ -383,6 +386,7 @@ JWT tokens stored in HTTP-only cookies:
       "title": "My New Post",
       "content": "Post content here...",
       "published": false,
+      "commentsEnabled": true,
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z",
       "author": {
@@ -418,7 +422,8 @@ JWT tokens stored in HTTP-only cookies:
 {
   "title": "Updated Title",
   "content": "Updated content...",
-  "published": true
+  "published": true,
+  "commentsEnabled": false
 }
 ```
 
@@ -426,6 +431,7 @@ JWT tokens stored in HTTP-only cookies:
 - **Title**: 1-50 characters if provided, must be unique per user
 - **Content**: 1-191 characters if provided
 - **Published**: Boolean if provided
+- **CommentsEnabled**: Boolean if provided - Enable/disable comments on this post
 
 **Behavior:**
 - Validates post exists and user owns it
@@ -434,6 +440,7 @@ JWT tokens stored in HTTP-only cookies:
 - Updates only provided fields
 - Handles null/undefined values safely
 - Updates `updatedAt` timestamp automatically
+- Can enable/disable comments on existing posts
 
 **Success Response:** 200
 ```json
@@ -648,7 +655,7 @@ JWT tokens stored in HTTP-only cookies:
 
 **Purpose:** Get all comments for a specific post
 
-**Authentication:** Not required (public)
+**Authentication:** Optional (enhanced features if authenticated)
 
 **Path Parameters:**
 - `postId`: Integer - Post ID to get comments for
@@ -658,7 +665,8 @@ JWT tokens stored in HTTP-only cookies:
 - Returns all comments for the post
 - Comments ordered by creation date (newest first)
 - Includes comment author information
-- No pagination (returns all comments)
+- No pagination for authenticated users (returns all comments)
+- Guest users may have limited results based on GUEST_COMMENT_LIMIT env variable
 
 **Success Response:** 200
 ```json
@@ -706,6 +714,7 @@ JWT tokens stored in HTTP-only cookies:
 
 **Behavior:**
 - Validates post exists
+- Checks if comments are enabled for the post
 - Sanitizes comment content (XSS protection)
 - Creates comment with authenticated user as author
 - Returns complete comment data with author info
@@ -733,6 +742,7 @@ JWT tokens stored in HTTP-only cookies:
 **Error Responses:**
 - **400 Bad Request**: Invalid post ID or content validation
 - **401 Unauthorized**: Not authenticated
+- **403 Forbidden**: Comments are disabled for this post
 - **404 Not Found**: Post doesn't exist
 
 ### PUT/PATCH `/api/interactions/comments/:commentId` 🔒
@@ -951,6 +961,7 @@ JWT tokens stored in HTTP-only cookies:
 - Posts ordered by creation date (newest first)
 - If authenticated, `isLikedByUser` is populated
 - Includes full post details with author and counts
+- Guest users may have limited results based on GUEST_POST_LIMIT env variable
 
 **Success Response:** 200
 ```json
@@ -964,6 +975,7 @@ JWT tokens stored in HTTP-only cookies:
         "title": "JavaScript Basics",
         "content": "Learning JavaScript...",
         "published": true,
+        "commentsEnabled": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z",
         "author": {
@@ -989,6 +1001,69 @@ JWT tokens stored in HTTP-only cookies:
 **Error Responses:**
 - **400 Bad Request**: Invalid tag ID
 - **404 Not Found**: Tag doesn't exist
+
+### GET `/api/tags/posts`
+
+**Purpose:** Get all published posts that have any or all of the specified tags (multi-tag filtering)
+
+**Authentication:** Optional (enhanced features if authenticated)
+
+**Query Parameters:**
+- `tags`: String (required) - Comma-separated tag IDs (e.g., "1,2,3")
+- `mode`: String (optional) - Filter mode: "any" (default, OR logic) or "all" (AND logic)
+
+**Behavior:**
+- Validates all tag IDs exist
+- Returns only published posts matching the tag criteria
+- `mode=any`: Posts with ANY of the specified tags (OR logic)
+- `mode=all`: Posts with ALL of the specified tags (AND logic)
+- Posts ordered by creation date (newest first)
+- If authenticated, `isLikedByUser` is populated
+- Guest users may have limited results based on GUEST_POST_LIMIT env variable
+
+**Success Response:** 200
+```json
+{
+  "status": "success",
+  "message": "Posts fetched successfully",
+  "data": {
+    "posts": [
+      {
+        "id": 1,
+        "title": "JavaScript and React",
+        "content": "Building apps...",
+        "published": true,
+        "commentsEnabled": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "author": {
+          "id": 1,
+          "name": "John Doe",
+          "email": "john@example.com"
+        },
+        "commentsCount": 5,
+        "likesCount": 10,
+        "isLikedByUser": true,
+        "tags": [
+          {
+            "id": 1,
+            "name": "javascript"
+          },
+          {
+            "id": 2,
+            "name": "react"
+          }
+        ]
+      }
+    ],
+    "filterMode": "any"
+  }
+}
+```
+
+**Error Responses:**
+- **400 Bad Request**: Missing or invalid tags parameter, invalid mode
+- **404 Not Found**: One or more tags don't exist
 
 ### POST `/api/tags/posts/:postId` 🔒
 
@@ -1616,6 +1691,10 @@ DATABASE_TIMEOUT="30000"               # Database timeout (30 seconds in ms)
 - **MAX_CONTENT_LENGTH**: Post content character limit (100,000 chars)
 - **MAX_BIO_LENGTH**: User bio character limit (500 chars)
 - **MAX_TITLE_LENGTH**: Post title character limit (120 chars)
+
+#### Guest User Restrictions
+- **GUEST_POST_LIMIT**: Maximum number of posts visible to unauthenticated users (optional, no limit if not set)
+- **GUEST_COMMENT_LIMIT**: Maximum number of comments visible to unauthenticated users per post (optional, no limit if not set)
 
 ### Development vs Production Settings
 

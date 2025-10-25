@@ -4,6 +4,7 @@ import {
 	addTagToPost,
 	removeTagFromPost,
 	getPostsByTag,
+	getPostsByMultipleTags,
 	getUserLikedTags,
 } from "../services/tag.service.js";
 
@@ -203,6 +204,71 @@ export const getPostsByTagController = async (req, res) => {
 		return res.status(500).json({
 			status: "error",
 			message: "Failed to fetch posts by tag",
+		});
+	}
+};
+
+export const getPostsByMultipleTagsController = async (req, res) => {
+	try {
+		const userId = req.user?.userId;
+		const { tags: tagsParam, mode = "any" } = req.query;
+
+		// Validate tags parameter
+		if (!tagsParam) {
+			return res.status(400).json({
+				status: "error",
+				message: "Tags query parameter is required (comma-separated tag IDs)",
+			});
+		}
+
+		// Parse and validate tag IDs
+		const tagIds = tagsParam
+			.split(",")
+			.map((id) => validateTagId(id.trim()))
+			.filter((id) => id !== null);
+
+		if (tagIds.length === 0) {
+			return res.status(400).json({
+				status: "error",
+				message: "At least one valid tag ID is required",
+			});
+		}
+
+		// Validate mode parameter
+		if (mode !== "any" && mode !== "all") {
+			return res.status(400).json({
+				status: "error",
+				message: "Mode must be either 'any' or 'all'",
+			});
+		}
+
+		const posts = await getPostsByMultipleTags(tagIds, mode, userId);
+
+		return res.status(200).json({
+			status: "success",
+			message: "Posts fetched successfully",
+			data: { posts, filterMode: mode },
+		});
+	} catch (err) {
+		console.error("Get Posts By Multiple Tags Controller Error:", err);
+
+		if (err.message === "At least one tag ID is required") {
+			return res.status(400).json({
+				status: "error",
+				message: err.message,
+			});
+		}
+
+		if (err.message === "One or more tags not found") {
+			return res.status(404).json({
+				status: "error",
+				message: err.message,
+			});
+		}
+
+		return res.status(500).json({
+			status: "error",
+			message: "Failed to fetch posts by tags",
 		});
 	}
 };
