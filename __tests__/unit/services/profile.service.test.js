@@ -1,6 +1,36 @@
+vi.mock("@prisma/client", () => {
+	const prismaMock = {
+		user: {
+			create: vi.fn(),
+			findUnique: vi.fn(),
+			findMany: vi.fn(),
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			delete: vi.fn(),
+			count: vi.fn(),
+		},
+		profile: {
+			create: vi.fn(),
+			findUnique: vi.fn(),
+			findMany: vi.fn(),
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			delete: vi.fn(),
+			count: vi.fn(),
+		},
+		$disconnect: vi.fn(),
+		$transaction: vi.fn((callback) => callback(prismaMock)),
+	};
+
+	return {
+		PrismaClient: vi.fn(() => prismaMock),
+	};
+});
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { prismaMock } from "../../setup/prisma-mock.js";
 import { mockProfiles, mockProfileInput } from "../../../__mocks__/data/profiles.mock.js";
+import { getProfile, updateProfile } from "../../../services/profile.service.js";
 
 describe("Profile Service - Unit Tests", () => {
 	beforeEach(() => {
@@ -9,27 +39,51 @@ describe("Profile Service - Unit Tests", () => {
 
 	describe("Get Profile", () => {
 		it("should fetch user profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(mockProfiles.userProfile);
+			const userId = 1;
+			const userWithProfile = {
+				id: userId,
+				name: "John Doe",
+				email: "john@example.com",
+				profile: mockProfiles.userProfile,
+			};
 
-			expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
+			prismaMock.user.findUnique.mockResolvedValue(userWithProfile);
+
+			const result = await getProfile(userId);
+
+			expect(prismaMock.user.findUnique).toHaveBeenCalled();
+			expect(result.bio).toBeTruthy();
 		});
 
-		it("should return null for non-existent profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(null);
+		it("should return error for non-existent profile", async () => {
+			prismaMock.user.findUnique.mockResolvedValue(null);
 
-			expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
+			await expect(getProfile(999)).rejects.toThrow("User not found");
 		});
 	});
 
 	describe("Update Profile", () => {
 		it("should update profile successfully", async () => {
+			const userId = 1;
+			const userWithProfile = {
+				id: userId,
+				name: "John Doe",
+				email: "john@example.com",
+				profile: mockProfiles.userProfile,
+			};
+
 			const updatedProfile = {
 				...mockProfiles.userProfile,
 				...mockProfileInput.validProfile,
 			};
+
+			prismaMock.user.findUnique.mockResolvedValue(userWithProfile);
 			prismaMock.profile.update.mockResolvedValue(updatedProfile);
 
-			expect(prismaMock.profile.update).not.toHaveBeenCalled();
+			const result = await updateProfile(userId, mockProfileInput.validProfile);
+
+			expect(prismaMock.profile.update).toHaveBeenCalled();
+			expect(result.bio).toBeTruthy();
 		});
 
 		it("should validate profile data", async () => {

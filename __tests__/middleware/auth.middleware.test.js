@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-	createMockRequest,
-	createMockResponse,
-	createMockNext,
-	generateTestToken,
-	generateExpiredToken,
-} from "../setup/test-utils.js";
+import { createMockRequest, createMockNext, generateTestToken, generateExpiredToken } from "../setup/test-utils.js";
+import jwt from "jsonwebtoken";
 
 describe("Auth Middleware - Tests", () => {
 	beforeEach(() => {
@@ -20,19 +15,18 @@ describe("Auth Middleware - Tests", () => {
 					authorization: `Bearer ${token}`,
 				},
 			});
-			const res = createMockResponse();
-			const next = createMockNext();
 
 			expect(token).toBeTruthy();
 			expect(token.split(".").length).toBe(3);
+
+			const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+			expect(decoded.id).toBe(1);
 		});
 
 		it("should reject request without token", async () => {
 			const req = createMockRequest({
 				headers: {},
 			});
-			const res = createMockResponse();
-			const next = createMockNext();
 
 			expect(req.headers.authorization).toBeUndefined();
 		});
@@ -49,24 +43,18 @@ describe("Auth Middleware - Tests", () => {
 
 		it("should reject expired token", async () => {
 			const expiredToken = generateExpiredToken(1);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${expiredToken}`,
-				},
-			});
 
-			expect(expiredToken).toBeTruthy();
+			expect(() => {
+				jwt.verify(expiredToken, process.env.JWT_SECRET_KEY);
+			}).toThrow();
 		});
 
 		it("should reject invalid token signature", async () => {
 			const invalidToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature";
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${invalidToken}`,
-				},
-			});
 
-			expect(invalidToken.split(".").length).toBe(3);
+			expect(() => {
+				jwt.verify(invalidToken, process.env.JWT_SECRET_KEY);
+			}).toThrow();
 		});
 	});
 
@@ -109,25 +97,17 @@ describe("Auth Middleware - Tests", () => {
 	describe("User Attachment", () => {
 		it("should attach user data to request", async () => {
 			const token = generateTestToken(1);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${token}`,
-				},
-			});
+			const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-			expect(req.user).toBeNull();
+			expect(decoded.id).toBe(1);
 		});
 
 		it("should include user ID in request", async () => {
 			const userId = 1;
 			const token = generateTestToken(userId);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${token}`,
-				},
-			});
+			const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-			expect(userId).toBeTruthy();
+			expect(decoded.id).toBe(userId);
 		});
 	});
 
@@ -136,7 +116,6 @@ describe("Auth Middleware - Tests", () => {
 			const req = createMockRequest({
 				headers: {},
 			});
-			const res = createMockResponse();
 
 			expect(req.headers.authorization).toBeUndefined();
 		});
@@ -148,30 +127,26 @@ describe("Auth Middleware - Tests", () => {
 				},
 			});
 
-			expect(req.headers.authorization).toBeTruthy();
+			expect(() => {
+				jwt.verify("invalid_token", process.env.JWT_SECRET_KEY);
+			}).toThrow();
 		});
 
 		it("should return 401 for expired token", async () => {
 			const expiredToken = generateExpiredToken(1);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${expiredToken}`,
-				},
-			});
 
-			expect(expiredToken).toBeTruthy();
+			expect(() => {
+				jwt.verify(expiredToken, process.env.JWT_SECRET_KEY);
+			}).toThrow();
 		});
 
 		it("should call next() on successful verification", async () => {
 			const token = generateTestToken(1);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${token}`,
-				},
-			});
 			const next = createMockNext();
 
 			expect(token).toBeTruthy();
+			const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+			expect(decoded.id).toBe(1);
 		});
 	});
 
@@ -180,20 +155,15 @@ describe("Auth Middleware - Tests", () => {
 			const req = createMockRequest({
 				headers: {},
 			});
-			const next = createMockNext();
 
 			expect(req.headers.authorization).toBeUndefined();
 		});
 
 		it("should attach user if token provided for optional auth", async () => {
 			const token = generateTestToken(1);
-			const req = createMockRequest({
-				headers: {
-					authorization: `Bearer ${token}`,
-				},
-			});
+			const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-			expect(token).toBeTruthy();
+			expect(decoded.id).toBe(1);
 		});
 	});
 });

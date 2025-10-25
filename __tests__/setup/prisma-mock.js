@@ -1,3 +1,4 @@
+// __tests__/setup/prisma-mock.js
 import { vi } from "vitest";
 
 export const prismaMock = {
@@ -37,6 +38,15 @@ export const prismaMock = {
 		count: vi.fn(),
 	},
 	tag: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		update: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	profile: {
 		create: vi.fn(),
 		findUnique: vi.fn(),
 		findMany: vi.fn(),

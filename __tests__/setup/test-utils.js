@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
 
-export const generateTestToken = (userId = 1, expiresIn = "7d") => {
-	return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn });
+export const generateTestToken = (userId = 1, expiresIn = "15m") => {
+	return jwt.sign({ id: userId }, process.env.JWT_SECRET_KEY, { expiresIn });
 };
 
 export const generateExpiredToken = (userId = 1) => {
-	return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "-1h" });
+	return jwt.sign({ id: userId }, process.env.JWT_SECRET_KEY, { expiresIn: "-1h" });
 };
 
 export const createMockRequest = (overrides = {}) => {

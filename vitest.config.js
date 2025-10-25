@@ -1,3 +1,4 @@
+// vitest.config.js
 import { defineConfig } from "vitest/config";
 import path from "path";
 
@@ -5,11 +6,11 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: "node",
-		setupFiles: ["./tests/setup/test-setup.js"],
+		setupFiles: ["./__tests__/setup/test-setup.js"],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html", "lcov"],
-			exclude: ["node_modules/", "tests/", "**/*.test.js", "**/*.spec.js"],
+			exclude: ["node_modules/", "__tests__/", "**/*.test.js", "**/*.spec.js"],
 			lines: 70,
 			functions: 70,
 			branches: 70,

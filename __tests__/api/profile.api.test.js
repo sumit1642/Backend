@@ -1,6 +1,36 @@
+vi.mock("@prisma/client", () => {
+	const prismaMock = {
+		user: {
+			create: vi.fn(),
+			findUnique: vi.fn(),
+			findMany: vi.fn(),
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			delete: vi.fn(),
+			count: vi.fn(),
+		},
+		profile: {
+			create: vi.fn(),
+			findUnique: vi.fn(),
+			findMany: vi.fn(),
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			delete: vi.fn(),
+			count: vi.fn(),
+		},
+		$disconnect: vi.fn(),
+		$transaction: vi.fn((callback) => callback(prismaMock)),
+	};
+
+	return {
+		PrismaClient: vi.fn(() => prismaMock),
+	};
+});
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { prismaMock } from "../setup/prisma-mock.js";
 import { mockProfiles, mockProfileInput } from "../../__mocks__/data/profiles.mock.js";
+import { getProfile, updateProfile } from "../../services/profile.service.js";
 
 describe("Profile API Endpoints", () => {
 	beforeEach(() => {
@@ -9,51 +39,77 @@ describe("Profile API Endpoints", () => {
 
 	describe("GET /api/profiles/:userId", () => {
 		it("should fetch user profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(mockProfiles.userProfile);
+			const userId = 1;
+			const userWithProfile = {
+				id: userId,
+				name: "John Doe",
+				email: "john@example.com",
+				profile: mockProfiles.userProfile,
+			};
 
-			expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
+			prismaMock.user.findUnique.mockResolvedValue(userWithProfile);
+
+			const result = await getProfile(userId);
+
+			expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+				where: { id: userId },
+				include: { profile: true },
+			});
+			expect(result.bio).toBeTruthy();
 		});
 
-		it("should return 404 for non-existent profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(null);
+		it("should return error for non-existent profile", async () => {
+			prismaMock.user.findUnique.mockResolvedValue(null);
 
-			expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
+			await expect(getProfile(999)).rejects.toThrow("User not found");
 		});
 
 		it("should include user metadata", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(mockProfiles.userProfile);
+			const userWithProfile = {
+				id: 1,
+				name: "John Doe",
+				email: "john@example.com",
+				profile: mockProfiles.userProfile,
+			};
 
-			expect(mockProfiles.userProfile.userId).toBeTruthy();
-			expect(mockProfiles.userProfile.bio).toBeTruthy();
+			prismaMock.user.findUnique.mockResolvedValue(userWithProfile);
+
+			const result = await getProfile(1);
+			expect(result.id).toBeTruthy();
+			expect(result.bio).toBeTruthy();
 		});
 	});
 
 	describe("PUT /api/profiles/:userId", () => {
 		it("should update own profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(mockProfiles.userProfile);
+			const userId = 1;
+			const updateData = { bio: "Updated bio" };
+			const userWithProfile = {
+				id: userId,
+				name: "John Doe",
+				email: "john@example.com",
+				profile: mockProfiles.userProfile,
+			};
+
+			prismaMock.user.findUnique.mockResolvedValue(userWithProfile);
 			prismaMock.profile.update.mockResolvedValue({
 				...mockProfiles.userProfile,
-				...mockProfileInput.validProfile,
+				bio: updateData.bio,
 			});
 
-			expect(prismaMock.profile.update).not.toHaveBeenCalled();
-		});
+			const result = await updateProfile(userId, updateData);
 
-		it("should return 403 for unauthorized update", async () => {
-			const profileUserId = 1;
-			const currentUserId = 2;
-
-			expect(profileUserId).not.toBe(currentUserId);
+			expect(result.bio).toBe(updateData.bio);
 		});
 
 		it("should validate profile data", async () => {
 			expect(mockProfileInput.validProfile.bio).toBeTruthy();
 		});
 
-		it("should return 404 for non-existent profile", async () => {
-			prismaMock.profile.findUnique.mockResolvedValue(null);
+		it("should return error for non-existent profile", async () => {
+			prismaMock.user.findUnique.mockResolvedValue(null);
 
-			expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
+			await expect(updateProfile(999, { bio: "test" })).rejects.toThrow("User not found");
 		});
 	});
 });
