@@ -1,0 +1,57 @@
+import { vi } from "vitest";
+
+export const prismaMock = {
+	user: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		update: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	post: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		update: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	comment: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		update: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	like: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	tag: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		findFirst: vi.fn(),
+		update: vi.fn(),
+		delete: vi.fn(),
+		count: vi.fn(),
+	},
+	refreshToken: {
+		create: vi.fn(),
+		findUnique: vi.fn(),
+		findMany: vi.fn(),
+		delete: vi.fn(),
+		deleteMany: vi.fn(),
+	},
+	$disconnect: vi.fn(),
+	$transaction: vi.fn((callback) => callback(prismaMock)),
+};

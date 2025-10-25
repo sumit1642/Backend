@@ -7,8 +7,14 @@
 	"scripts": {
 		"start": "node index.js",
 		"dev": "nodemon index.js",
-		"lint": "echo \"No linter configured\"",
-		"test": "echo \"No tests configured\""
+		"test": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest --coverage",
+		"test:watch": "vitest --watch",
+		"test:unit": "vitest run __tests__/unit",
+		"test:integration": "vitest run __tests__/integration",
+		"test:api": "vitest run __tests__/api",
+		"lint": "echo \"No linter configured\""
 	},
 	"keywords": [
 		"express",
@@ -17,7 +23,7 @@
 		"jwt",
 		"mysql"
 	],
-	"author": "Your Name",
+	"author": "Sumit Yadav",
 	"license": "MIT",
 	"dependencies": {
 		"@prisma/client": "^6.12.0",
@@ -26,13 +32,16 @@
 		"cors": "^2.8.5",
 		"crypto-js": "^4.2.0",
 		"express": "^5.1.0",
-		"jsonwebtoken": "^9.0.2"
+		"jsonwebtoken": "^9.0.2",
+		"supertest": "^7.1.4"
 	},
 	"devDependencies": {
 		"@types/cookie-parser": "^1.4.9",
 		"@types/express": "^5.0.3",
 		"@types/jsonwebtoken": "^9.0.10",
+		"@vitest/coverage-v8": "^4.0.3",
 		"nodemon": "^3.1.10",
-		"prisma": "^6.12.0"
+		"prisma": "^6.12.0",
+		"vitest": "^4.0.3"
 	}
 }
